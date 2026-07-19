@@ -1,4 +1,5 @@
 import { AlertTriangle, CircleAlert, PhoneMissed, PhoneOff } from "lucide-react";
+import { AutoRefresh } from "@/components/dashboard/AutoRefresh";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { MarkAlertReadButton } from "@/components/dashboard/calls/MarkAlertReadButton";
 import { Card } from "@/components/ui/Card";
@@ -41,6 +42,8 @@ export default async function AlertsPage() {
           title="Alerts"
           description="Prioritized signals for missed medicine, no answer, and need help responses."
         />
+
+        <AutoRefresh />
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {alerts.length === 0 ? (

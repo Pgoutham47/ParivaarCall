@@ -132,7 +132,7 @@ The call engine supports two providers:
 Flow:
 
 1. Active medicine schedules are read for the current day.
-2. Pending `call_logs` are created for each schedule time.
+2. Pending `call_logs` are created for each schedule time. Saving a medicine in the dashboard also creates today's log immediately, so a reminder added during the day still fires today; a time that has already passed is left for tomorrow rather than dialing at once.
 3. Due pending calls are processed through the selected provider.
 4. Simulated calls finalize immediately; Bolna calls stay in `calling` with a stored `provider_call_id` until the webhook arrives.
 5. `call_logs` are updated with status, response type, transcript, and recording URL (Bolna).
@@ -215,7 +215,7 @@ The call engine is driven by three scheduled jobs defined in [supabase/migration
 | Job | Schedule (UTC) | Purpose |
 | --- | --- | --- |
 | `parivaar-generate-call-logs` | `45 18 * * *` (00:15 IST) | Create today's pending call logs |
-| `parivaar-process-calls` | `*/5 * * * *` | Place calls that are now due |
+| `parivaar-process-calls` | `* * * * *` | Place calls that are now due |
 | `parivaar-reconcile-calls` | `*/15 * * * *` | Recover calls whose webhook never arrived |
 
 To enable them:
@@ -223,7 +223,10 @@ To enable them:
 1. Deploy the app first, so you have a public URL.
 2. In the Supabase dashboard, open Database → Extensions and enable `pg_cron` and `pg_net`.
 3. Open the SQL editor and paste `005_scheduler_cron.sql`, replacing the two placeholder values in the `insert` statement with your deployed URL (no trailing slash) and the exact `CRON_SECRET` from your Vercel environment.
-4. Run it, then verify with `select jobname, schedule, active from cron.job;`.
+4. Run it, then run [006_scheduler_every_minute.sql](./supabase/migrations/006_scheduler_every_minute.sql), which tightens the process job from every 5 minutes to every minute.
+5. Verify with `select jobname, schedule, active from cron.job;`.
+
+Reminders are placed on the next run of the process job, so a dose is called within about a minute of its scheduled time. The dashboard, call history, and alerts pages refresh themselves every 20 seconds while open, so outcomes appear without a manual reload.
 
 The secret lives in `private.cron_config`, a schema that is never exposed through the Supabase API, and is sent as an `Authorization: Bearer` header. To rotate it, update that row and the Vercel environment variable together.
 
