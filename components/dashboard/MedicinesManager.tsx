@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { formatEnum } from "@/lib/utils";
+import { generateCallLogForSchedule } from "@/lib/services/call-engine";
 import {
   createMedicineSchedule,
   deactivateMedicineSchedule,
@@ -41,6 +42,15 @@ export function MedicinesManager({
       const savedSchedule = editingSchedule
         ? await updateMedicineSchedule(supabase, editingSchedule.id, input)
         : await createMedicineSchedule(supabase, input);
+
+      // Schedule today's call right away. Without this the medicine would wait
+      // for the nightly generator, so a reminder added during the day would
+      // never fire today.
+      try {
+        await generateCallLogForSchedule(supabase, savedSchedule.id);
+      } catch {
+        // The nightly generator will still pick this up; saving must not fail.
+      }
 
       setSchedules((current) =>
         editingSchedule

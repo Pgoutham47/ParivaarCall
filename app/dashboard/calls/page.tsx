@@ -1,4 +1,5 @@
 import { PhoneCall } from "lucide-react";
+import { AutoRefresh } from "@/components/dashboard/AutoRefresh";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { CallSimulationActions } from "@/components/dashboard/calls/CallSimulationActions";
 import { DevCallEnginePanel } from "@/components/dashboard/calls/DevCallEnginePanel";
@@ -31,8 +32,10 @@ export default async function CallsPage() {
         <PageHeader
           eyebrow="Call history"
           title="Medicine call logs"
-          description="Call outcomes will appear here after the call engine writes logs."
+          description="Call outcomes appear here automatically as calls complete."
         />
+
+        <AutoRefresh />
 
         {process.env.NODE_ENV !== "production" ? <DevCallEnginePanel /> : null}
 
