@@ -1,4 +1,5 @@
 import { AlertTriangle, CalendarCheck2, PhoneCall, Pill, UsersRound } from "lucide-react";
+import { AutoRefresh } from "@/components/dashboard/AutoRefresh";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { DevCallEnginePanel } from "@/components/dashboard/calls/DevCallEnginePanel";
@@ -33,6 +34,8 @@ export default async function DashboardHome() {
           title="A calm view of family medicine routines"
           description="See what has been confirmed, what needs another attempt, and where your family may need to step in."
         />
+
+        <AutoRefresh />
 
         {process.env.NODE_ENV !== "production" ? <DevCallEnginePanel /> : null}
 

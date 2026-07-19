@@ -41,6 +41,14 @@ export type Frequency = "daily" | "weekly" | "custom";
 export type ImportanceLevel = "routine" | "important";
 export type SupportedCallLanguage = "Telugu" | "Hindi" | "English" | "Tamil" | "Kannada";
 
+// Languages offered in the dashboard. Deliberately narrower than
+// SupportedCallLanguage: templates exist for Hindi, Tamil, and Kannada and are
+// covered by tests, but no native speaker has read their phrasing aloud, and a
+// medicine reminder to an elderly parent is the wrong place to ship wording
+// nobody has checked. Move a language here once someone who speaks it has
+// reviewed lib/call-scripts/templates.ts.
+export const selectableCallLanguages: ReadonlyArray<SupportedCallLanguage> = ["Telugu", "English"];
+
 export type MedicineSchedule = {
   id: string;
   caregiverId: string;
