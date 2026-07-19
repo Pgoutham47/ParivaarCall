@@ -2,7 +2,6 @@ import { PhoneCall } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { CallSimulationActions } from "@/components/dashboard/calls/CallSimulationActions";
 import { DevCallEnginePanel } from "@/components/dashboard/calls/DevCallEnginePanel";
-import { GenerateAudioButton } from "@/components/dashboard/calls/GenerateAudioButton";
 import { ScriptPreviewButton } from "@/components/dashboard/calls/ScriptPreviewButton";
 import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -62,7 +61,7 @@ export default async function CallsPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <StatusBadge label={call.scriptText ? "script generated" : "script missing"} tone={call.scriptText ? "green" : "amber"} />
                       <StatusBadge label={call.scriptLanguage} tone="blue" />
-                      <StatusBadge label={call.audioStatus} tone={call.audioStatus === "failed" ? "red" : call.audioStatus === "not_generated" ? "neutral" : "green"} />
+                      <StatusBadge label={call.callProvider ?? "no provider yet"} tone={call.callProvider ? "green" : "neutral"} />
                     </div>
                     <p className="mt-3 text-sm leading-6 text-sage-700">{call.shortPreviewText}</p>
                     <div className="mt-3 flex flex-wrap gap-2">
@@ -71,19 +70,22 @@ export default async function CallsPage() {
                         medicineName={call.medicine}
                         language={call.scriptLanguage}
                         scriptText={call.scriptText}
-                        dtmfInstructions={call.dtmfInstructions}
                         safetyNote={call.safetyNote}
                       />
-                      {process.env.NODE_ENV !== "production" ? <GenerateAudioButton callLogId={call.id} /> : null}
                     </div>
-                    <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-sage-600">
-                      <span>Audio provider: {call.audioProvider ?? "none"}</span>
-                      <span>Audio generated: {call.audioGeneratedAt ?? "not yet"}</span>
-                    </div>
+                    {call.transcript ? (
+                      <div className="mt-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-sage-600">Call transcript</p>
+                        <p className="mt-1 whitespace-pre-line text-sm leading-6 text-sage-700">{call.transcript}</p>
+                      </div>
+                    ) : null}
                     {call.audioUrl ? (
-                      <audio className="mt-3 w-full" controls preload="none">
-                        <source src={call.audioUrl} />
-                      </audio>
+                      <div className="mt-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-sage-600">Call recording</p>
+                        <audio className="mt-1 w-full" controls preload="none">
+                          <source src={call.audioUrl} />
+                        </audio>
+                      </div>
                     ) : null}
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-sage-600">

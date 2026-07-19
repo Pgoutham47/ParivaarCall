@@ -1,10 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getCallProvider } from "@/lib/call-providers";
 import { generateMedicineReminderScript, getLanguageTemplate } from "@/lib/call-scripts";
+import { sendAlertEmail } from "@/lib/services/notifications";
+import { APP_TIMEZONE, endOfLocalDay, localDateKey, startOfLocalDay, zonedDateTimeToUtc } from "@/lib/services/timezone";
 import type { Database } from "@/lib/database.types";
 import type {
   CallAttemptResult,
   CallJob,
+  CallPlacement,
   CallStatus,
   ResponseType,
   SimulatedCallResponse,
@@ -25,24 +28,8 @@ type CallLogWithRelations = CallLogRow & {
 const DEFAULT_RETRY_DELAY_MINUTES = 10;
 const DEFAULT_MAX_RETRIES = 2;
 
-function localDateKey(date = new Date()) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
-function startOfLocalDay(date = new Date()) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-function endOfLocalDay(date = new Date()) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
-}
-
 function scheduledDateTime(dateKey: string, scheduledTime: string) {
-  return new Date(`${dateKey}T${scheduledTime}`).toISOString();
+  return zonedDateTimeToUtc(dateKey, scheduledTime).toISOString();
 }
 
 function isScheduleActiveToday(schedule: MedicineRow, dateKey = localDateKey()) {
@@ -67,6 +54,7 @@ function displayTime(value: string | null) {
   }
 
   return new Intl.DateTimeFormat("en-IN", {
+    timeZone: APP_TIMEZONE,
     hour: "numeric",
     minute: "2-digit",
     hour12: true
@@ -77,14 +65,11 @@ async function getVoiceSettings(
   supabase: Client,
   caregiverId: string
 ): Promise<
-  Pick<
-    VoiceSettingsRow,
-    "retry_delay_minutes" | "max_retries" | "preferred_language" | "voice_tone" | "voice_gender" | "speech_speed" | "respect_mode"
-  >
+  Pick<VoiceSettingsRow, "retry_delay_minutes" | "max_retries" | "preferred_language" | "respect_mode">
 > {
   const { data, error } = await supabase
     .from("voice_settings")
-    .select("retry_delay_minutes, max_retries, preferred_language, voice_tone, voice_gender, speech_speed, respect_mode")
+    .select("retry_delay_minutes, max_retries, preferred_language, respect_mode")
     .eq("caregiver_id", caregiverId)
     .maybeSingle();
 
@@ -96,9 +81,6 @@ async function getVoiceSettings(
     retry_delay_minutes: data?.retry_delay_minutes ?? DEFAULT_RETRY_DELAY_MINUTES,
     max_retries: data?.max_retries ?? DEFAULT_MAX_RETRIES,
     preferred_language: data?.preferred_language ?? "Parent preferred language",
-    voice_tone: data?.voice_tone ?? "warm",
-    voice_gender: data?.voice_gender ?? "female",
-    speech_speed: data?.speech_speed ?? "normal",
     respect_mode: data?.respect_mode ?? "formal"
   };
 }
@@ -106,7 +88,7 @@ async function getVoiceSettings(
 function buildScriptPayload(input: {
   parent: Pick<ParentRow, "name" | "relationship" | "language">;
   schedule: Pick<MedicineRow, "medicine_name" | "dosage_instruction" | "food_timing" | "scheduled_time">;
-  settings: Pick<VoiceSettingsRow, "preferred_language" | "voice_tone" | "respect_mode">;
+  settings: Pick<VoiceSettingsRow, "preferred_language" | "respect_mode">;
   retryCount: number;
 }) {
   const language =
@@ -120,7 +102,6 @@ function buildScriptPayload(input: {
     foodTiming: input.schedule.food_timing,
     scheduledTime: input.schedule.scheduled_time,
     retryCount: input.retryCount,
-    voiceTone: input.settings.voice_tone as "warm" | "calm" | "respectful",
     respectMode: input.settings.respect_mode as "formal" | "casual"
   });
 
@@ -134,7 +115,7 @@ function buildScriptPayload(input: {
 async function createRetryCallLog(
   supabase: Client,
   callLog: CallLogWithRelations,
-  settings: Pick<VoiceSettingsRow, "retry_delay_minutes" | "preferred_language" | "voice_tone" | "respect_mode">
+  settings: Pick<VoiceSettingsRow, "retry_delay_minutes" | "preferred_language" | "respect_mode">
 ) {
   if (!callLog.parents || !callLog.medicine_schedules) {
     throw new Error("Retry call log is missing script details.");
@@ -191,7 +172,11 @@ function toCallJob(row: CallLogWithRelations): CallJob {
           dosage_instruction: row.medicine_schedules.dosage_instruction,
           scheduled_time: row.medicine_schedules.scheduled_time
         }
-      : null
+      : null,
+    script: {
+      text: row.script_text,
+      language: row.script_language
+    }
   };
 }
 
@@ -342,7 +327,7 @@ export async function createAlertFromCallResult(supabase: Client, callLog: CallL
   const medicineName = callLog.medicine_schedules?.medicine_name ?? "medicine";
 
   const alertByStatus: Partial<
-    Record<CallStatus, { alert_type: "no_answer" | "missed_medicine" | "need_help"; severity: "medium" | "high" | "critical"; title: string; message: string }>
+    Record<CallStatus, { alert_type: "no_answer" | "missed_medicine" | "need_help" | "call_failed"; severity: "medium" | "high" | "critical"; title: string; message: string }>
   > = {
     no_answer: {
       alert_type: "no_answer",
@@ -361,6 +346,19 @@ export async function createAlertFromCallResult(supabase: Client, callLog: CallL
       severity: "critical",
       title: "Parent requested help",
       message: `${parentName} requested help. Phone number: ${callLog.parents?.phone ?? "not available"}.`
+    },
+    failed: {
+      alert_type: "call_failed",
+      severity: "high",
+      title: "Reminder call failed",
+      message: `The reminder call to ${parentName} for ${medicineName} could not be completed. Check the calling provider and account balance.`
+    },
+    // Only reached when retries are exhausted; an active snooze creates a retry instead.
+    snoozed: {
+      alert_type: "missed_medicine",
+      severity: "high",
+      title: "Medicine not confirmed",
+      message: `${parentName} asked to be reminded later about ${medicineName}, but the retry limit was reached and no more calls will be placed today.`
     }
   };
 
@@ -385,7 +383,79 @@ export async function createAlertFromCallResult(supabase: Client, callLog: CallL
     throw new Error(error.message);
   }
 
+  // Notify the caregiver right away; a critical alert sitting unseen in the
+  // dashboard defeats the point. Failures are logged, never thrown.
+  const notification = await sendAlertEmail({
+    caregiverId: callLog.caregiver_id,
+    alertType: alert.alert_type,
+    severity: alert.severity,
+    title: alert.title,
+    message: alert.message,
+    parentName
+  });
+
+  if (!notification.sent && !notification.skipped) {
+    console.warn(`[notifications] alert email not sent: ${notification.reason}`);
+  }
+
   return data;
+}
+
+export async function finalizeCallResult(supabase: Client, callLogId: string, result: CallAttemptResult) {
+  const updated = await updateCallResult(supabase, callLogId, result);
+  const updatedWithRelations = await getCallLogWithRelations(supabase, updated.id);
+  const settings = await getVoiceSettings(supabase, updated.caregiver_id);
+  let retryCreated = false;
+  let alertCreated = false;
+
+  if ((result.status === "snoozed" || result.status === "no_answer") && updated.retry_count < settings.max_retries) {
+    await createRetryCallLog(supabase, updatedWithRelations, settings);
+    retryCreated = true;
+  } else if (
+    result.status === "no_answer" ||
+    result.status === "missed" ||
+    result.status === "need_help" ||
+    result.status === "failed" ||
+    result.status === "snoozed"
+  ) {
+    const alert = await createAlertFromCallResult(supabase, updatedWithRelations);
+    alertCreated = Boolean(alert);
+  }
+
+  return { callLog: updatedWithRelations, status: result.status as CallStatus, responseType: result.responseType, retryCreated, alertCreated };
+}
+
+// Calls stuck in "calling" mean the provider webhook never arrived (or the
+// placement crashed mid-flight). The reconcile job polls these against Bolna.
+export async function getStuckCallingLogs(supabase: Client, olderThanMinutes: number, limit = 25) {
+  const cutoff = new Date(Date.now() - olderThanMinutes * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from("call_logs")
+    .select("*, parents(id, name, phone, relationship, language), medicine_schedules(id, medicine_name, dosage_instruction, scheduled_time, food_timing)")
+    .eq("call_status", "calling")
+    .lt("call_started_at", cutoff)
+    .order("call_started_at", { ascending: true })
+    .limit(limit);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []) as CallLogWithRelations[];
+}
+
+export async function findCallLogByProviderCallId(supabase: Client, providerCallId: string) {
+  const { data, error } = await supabase
+    .from("call_logs")
+    .select("*, parents(id, name, phone, relationship, language), medicine_schedules(id, medicine_name, dosage_instruction, scheduled_time, food_timing)")
+    .eq("provider_call_id", providerCallId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as CallLogWithRelations | null;
 }
 
 export async function processPendingCall(
@@ -396,34 +466,71 @@ export async function processPendingCall(
   const callLog = await getCallLogWithRelations(supabase, callLogId);
   const provider = getCallProvider();
 
-  const { error: callingError } = await supabase
+  // Claim the row: only a transition from pending can proceed, so overlapping
+  // cron runs or a re-sent process-one request cannot dial the parent twice.
+  const { data: claimedRows, error: callingError } = await supabase
     .from("call_logs")
     .update({
       call_status: "calling",
       call_started_at: new Date().toISOString()
     })
-    .eq("id", callLogId);
+    .eq("id", callLogId)
+    .eq("call_status", "pending")
+    .select("id");
 
   if (callingError) {
     throw new Error(callingError.message);
   }
 
-  const result = await provider.placeCall(toCallJob(callLog), options);
-  const updated = await updateCallResult(supabase, callLogId, result);
-  const updatedWithRelations = await getCallLogWithRelations(supabase, updated.id);
-  const settings = await getVoiceSettings(supabase, updated.caregiver_id);
-  let retryCreated = false;
-  let alertCreated = false;
-
-  if ((result.status === "snoozed" || result.status === "no_answer") && updated.retry_count < settings.max_retries) {
-    await createRetryCallLog(supabase, updatedWithRelations, settings);
-    retryCreated = true;
-  } else if (result.status === "no_answer" || result.status === "missed" || result.status === "need_help") {
-    const alert = await createAlertFromCallResult(supabase, updatedWithRelations);
-    alertCreated = Boolean(alert);
+  if (!claimedRows || claimedRows.length === 0) {
+    return null;
   }
 
-  return { callLog: updatedWithRelations, result, retryCreated, alertCreated };
+  let placement: CallPlacement;
+
+  try {
+    placement = await provider.placeCall(toCallJob(callLog), options);
+  } catch (error) {
+    // Without this the log would sit in "calling" forever and nobody would know
+    // the call was never placed.
+    const message = error instanceof Error ? error.message : "Unknown provider error.";
+    const failed = await finalizeCallResult(supabase, callLogId, {
+      status: "failed",
+      responseType: "no_response",
+      notes: `Call could not be placed: ${message}`
+    });
+
+    return { ...failed, providerCallId: undefined };
+  }
+
+  if (placement.kind === "initiated") {
+    // Bolna is dialing through Vobiz; the outcome lands on /api/webhooks/bolna.
+    const { error: initiatedError } = await supabase
+      .from("call_logs")
+      .update({
+        call_provider: placement.provider,
+        provider_call_id: placement.providerCallId,
+        notes: placement.notes ?? null
+      })
+      .eq("id", callLogId);
+
+    if (initiatedError) {
+      throw new Error(initiatedError.message);
+    }
+
+    const updatedWithRelations = await getCallLogWithRelations(supabase, callLogId);
+
+    return {
+      callLog: updatedWithRelations,
+      status: "calling" as CallStatus,
+      responseType: null,
+      retryCreated: false,
+      alertCreated: false,
+      providerCallId: placement.providerCallId
+    };
+  }
+
+  return { ...(await finalizeCallResult(supabase, callLogId, placement.result)), providerCallId: undefined };
 }
 
 export async function getDashboardCallStats(supabase: Client) {
@@ -514,14 +621,16 @@ export async function getTodayScheduleWithCallStatus(supabase: Client): Promise<
     });
 }
 
-export function summarizeProcessedResults(results: Array<{ result: { status: CallStatus } }>) {
+export function summarizeProcessedResults(results: Array<{ status: CallStatus }>) {
   return {
     processed: results.length,
-    confirmed: results.filter((item) => item.result.status === "confirmed").length,
-    missed: results.filter((item) => item.result.status === "missed").length,
-    no_answer: results.filter((item) => item.result.status === "no_answer").length,
-    need_help: results.filter((item) => item.result.status === "need_help").length,
-    snoozed: results.filter((item) => item.result.status === "snoozed").length
+    calling: results.filter((item) => item.status === "calling").length,
+    confirmed: results.filter((item) => item.status === "confirmed").length,
+    missed: results.filter((item) => item.status === "missed").length,
+    no_answer: results.filter((item) => item.status === "no_answer").length,
+    need_help: results.filter((item) => item.status === "need_help").length,
+    snoozed: results.filter((item) => item.status === "snoozed").length,
+    failed: results.filter((item) => item.status === "failed").length
   };
 }
 

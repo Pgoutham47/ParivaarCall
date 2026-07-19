@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   Bell,
   CalendarClock,
+  ChartColumn,
   Home,
   Pill,
   Settings,
@@ -18,6 +19,7 @@ const items = [
   { href: "/dashboard/medicines", label: "Medicines", icon: Pill },
   { href: "/dashboard/calls", label: "Calls", icon: CalendarClock },
   { href: "/dashboard/alerts", label: "Alerts", icon: Bell },
+  { href: "/dashboard/analytics", label: "Analytics", icon: ChartColumn },
   { href: "/dashboard/settings", label: "Settings", icon: Settings }
 ];
 
@@ -72,7 +74,7 @@ export function BottomNav() {
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-sage-100 bg-white/95 px-2 py-2 shadow-[0_-10px_30px_rgba(36,50,43,0.08)] backdrop-blur lg:hidden">
-      <div className="grid grid-cols-6 gap-1">
+      <div className="grid grid-cols-7 gap-1">
         {items.map((item) => {
           const active = pathname === item.href;
           const Icon = item.icon;

@@ -227,6 +227,9 @@ export type Database = {
           audio_status: string;
           audio_provider: string | null;
           audio_generated_at: string | null;
+          call_provider: string | null;
+          provider_call_id: string | null;
+          transcript: string | null;
           notes: string | null;
           created_at: string;
         };
@@ -248,6 +251,9 @@ export type Database = {
           audio_status?: string;
           audio_provider?: string | null;
           audio_generated_at?: string | null;
+          call_provider?: string | null;
+          provider_call_id?: string | null;
+          transcript?: string | null;
           notes?: string | null;
           created_at?: string;
         };
@@ -269,6 +275,9 @@ export type Database = {
           audio_status?: string;
           audio_provider?: string | null;
           audio_generated_at?: string | null;
+          call_provider?: string | null;
+          provider_call_id?: string | null;
+          transcript?: string | null;
           notes?: string | null;
           created_at?: string;
         };
