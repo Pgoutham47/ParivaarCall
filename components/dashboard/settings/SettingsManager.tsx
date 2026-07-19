@@ -7,7 +7,9 @@ import { Card } from "@/components/ui/Card";
 import { Field, SelectInput, TextInput } from "@/components/ui/Field";
 import { updateVoiceSettings } from "@/lib/services/settings";
 import { createClient } from "@/lib/supabase/client";
-import type { RespectMode, VoiceSettings, VoiceSettingsInput } from "@/lib/types";
+import { selectableCallLanguages, type RespectMode, type VoiceSettings, type VoiceSettingsInput } from "@/lib/types";
+
+const PARENT_PREFERRED = "Parent preferred language";
 
 export function SettingsManager({
   initialSettings,
@@ -69,12 +71,16 @@ export function SettingsManager({
                 value={settings.languagePreference}
                 onChange={(event) => updateField("languagePreference", event.target.value)}
               >
-                <option>Parent preferred language</option>
-                <option>Hindi</option>
-                <option>Telugu</option>
-                <option>Tamil</option>
-                <option>Kannada</option>
-                <option>English</option>
+                <option>{PARENT_PREFERRED}</option>
+                {selectableCallLanguages.map((language) => (
+                  <option key={language}>{language}</option>
+                ))}
+                {/* A setting saved before the list narrowed stays visible, so
+                    opening this page cannot silently change the call language. */}
+                {settings.languagePreference !== PARENT_PREFERRED &&
+                !selectableCallLanguages.includes(settings.languagePreference as never) ? (
+                  <option>{settings.languagePreference}</option>
+                ) : null}
               </SelectInput>
             </Field>
             <Field label="Respect mode">

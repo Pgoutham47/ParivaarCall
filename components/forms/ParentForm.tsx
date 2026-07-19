@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, SelectInput, TextInput } from "@/components/ui/Field";
-import type { Parent, ParentInput } from "@/lib/types";
+import { selectableCallLanguages, type Parent, type ParentInput } from "@/lib/types";
 
 function makeInitialForm(parent?: Parent) {
   return {
@@ -11,7 +11,7 @@ function makeInitialForm(parent?: Parent) {
     relationship: parent?.relationship ?? "Mother",
     phoneNumber: parent?.phoneNumber ?? "",
     age: parent?.age ? String(parent.age) : "",
-    preferredLanguage: parent?.preferredLanguage ?? "Hindi",
+    preferredLanguage: parent?.preferredLanguage ?? "Telugu",
     city: parent?.city ?? "",
     emergencyContactName: parent?.emergencyContactName ?? "",
     emergencyContactPhone: parent?.emergencyContactPhone ?? ""
@@ -80,14 +80,14 @@ export function ParentForm({
       </Field>
       <Field label="Preferred language">
         <SelectInput value={form.preferredLanguage} onChange={(event) => updateField("preferredLanguage", event.target.value)}>
-          <option>Hindi</option>
-          <option>Telugu</option>
-          <option>Tamil</option>
-          <option>Kannada</option>
-          <option>Malayalam</option>
-          <option>Marathi</option>
-          <option>Bengali</option>
-          <option>English</option>
+          {selectableCallLanguages.map((language) => (
+            <option key={language}>{language}</option>
+          ))}
+          {/* A parent saved before the list narrowed keeps their stored
+              language, so editing them cannot silently reassign it. */}
+          {!selectableCallLanguages.includes(form.preferredLanguage as never) ? (
+            <option>{form.preferredLanguage}</option>
+          ) : null}
         </SelectInput>
       </Field>
       <Field label="City">
