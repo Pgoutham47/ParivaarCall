@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getProtectedCronClient } from "@/lib/services/api-auth";
 import { getPendingCalls, processPendingCall, summarizeProcessedResults } from "@/lib/services/call-engine";
 
+// Vercel cron invokes routes with GET.
+export async function GET(request: NextRequest) {
+  return POST(request);
+}
+
 export async function POST(request: NextRequest) {
   const protectedClient = await getProtectedCronClient(request);
 
@@ -12,10 +17,18 @@ export async function POST(request: NextRequest) {
   const pendingCalls = await getPendingCalls(protectedClient.supabase);
   const results = [];
   const errors: string[] = [];
+  let skipped = 0;
 
   for (const call of pendingCalls) {
     try {
-      results.push(await processPendingCall(protectedClient.supabase, call.id));
+      const result = await processPendingCall(protectedClient.supabase, call.id);
+
+      if (result) {
+        results.push(result);
+      } else {
+        // Another worker claimed this call log between fetch and processing.
+        skipped += 1;
+      }
     } catch (error) {
       errors.push(error instanceof Error ? error.message : "Unknown processing error.");
     }
@@ -23,6 +36,7 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     ...summarizeProcessedResults(results),
+    skipped,
     errors,
     mode: protectedClient.mode
   });

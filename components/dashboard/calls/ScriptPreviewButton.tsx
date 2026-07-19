@@ -9,7 +9,6 @@ type ScriptPreviewButtonProps = {
   medicineName: string;
   language: string;
   scriptText: string | null;
-  dtmfInstructions: string;
   safetyNote: string | null;
 };
 
@@ -18,7 +17,6 @@ export function ScriptPreviewButton({
   medicineName,
   language,
   scriptText,
-  dtmfInstructions,
   safetyNote
 }: ScriptPreviewButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -59,15 +57,9 @@ export function ScriptPreviewButton({
               <p className="whitespace-pre-wrap text-sm leading-6 text-care-ink">{scriptText ?? "Script not generated yet."}</p>
             </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-sage-600">Keypad options</p>
-                <p className="mt-2 text-sm leading-6 text-sage-700">{dtmfInstructions}</p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-sage-600">Safety note</p>
-                <p className="mt-2 text-sm leading-6 text-sage-700">{safetyNote ?? "Reminder only. No medical advice is generated."}</p>
-              </div>
+            <div className="mt-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-sage-600">Safety note</p>
+              <p className="mt-2 text-sm leading-6 text-sage-700">{safetyNote ?? "Reminder only. No medical advice is generated."}</p>
             </div>
           </div>
         </div>
