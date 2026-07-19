@@ -47,12 +47,14 @@ function mapCallLog(row: CallLogRow): CallLog {
     scriptText,
     scriptLanguage: template.language,
     shortPreviewText: scriptText ? `${scriptText.slice(0, 130)}${scriptText.length > 130 ? "..." : ""}` : "Script not generated yet.",
-    dtmfInstructions: [template.dtmf.taken, template.dtmf.later, template.dtmf.help].join(" "),
     safetyNote: template.safetyNote,
     audioUrl: row.audio_url,
     audioStatus: (row.audio_status ?? "not_generated") as AudioStatus,
     audioProvider: row.audio_provider,
-    audioGeneratedAt: row.audio_generated_at ? formatCreatedAt(row.audio_generated_at) : null
+    audioGeneratedAt: row.audio_generated_at ? formatCreatedAt(row.audio_generated_at) : null,
+    callProvider: row.call_provider,
+    providerCallId: row.provider_call_id,
+    transcript: row.transcript
   };
 }
 

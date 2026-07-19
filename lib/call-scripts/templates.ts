@@ -1,4 +1,4 @@
-import type { DtmfInstructions, SupportedCallLanguage } from "@/lib/types";
+import type { SupportedCallLanguage } from "@/lib/types";
 
 export type LanguageTemplate = {
   language: SupportedCallLanguage;
@@ -10,13 +10,20 @@ export type LanguageTemplate = {
   retryPrefix: string;
   opening(address: string): string;
   medicineLine(medicineInstruction: string): string;
-  dtmf: DtmfInstructions;
-  keypadLine: string;
+  closingQuestion: string;
   safetyNote: string;
+  // Caregivers type dosage in English ("1 tablet with water"), which lands
+  // awkwardly inside a Telugu or Tamil sentence. These rewrite the common
+  // patterns into the call language. Ordered longest-phrase-first, since they
+  // are applied in sequence. Anything unmatched passes through untouched.
+  dosagePhrases: ReadonlyArray<readonly [string, string]>;
 };
 
 export const supportedCallLanguages: SupportedCallLanguage[] = ["Telugu", "Hindi", "English", "Tamil", "Kannada"];
 
+// Scripts are written the way a family member would actually speak on the phone:
+// a short greeting, one plain sentence about the medicine, one direct question.
+// The voice agent converses from here, so there are no keypad instructions.
 export const languageTemplates: Record<SupportedCallLanguage, LanguageTemplate> = {
   English: {
     language: "English",
@@ -25,16 +32,12 @@ export const languageTemplates: Record<SupportedCallLanguage, LanguageTemplate> 
       before_food: "before food",
       after_food: "after food"
     },
-    retryPrefix: "This is a reminder again. ",
-    opening: (address) => `Hello ${address}, this is your medicine reminder.`,
-    medicineLine: (medicineInstruction) => `It is time to take your ${medicineInstruction}.`,
-    dtmf: {
-      taken: "Press 1 if you have taken it.",
-      later: "Press 2 to remind later.",
-      help: "Press 3 if you need help."
-    },
-    keypadLine: "Please press 1 if you have taken it, press 2 to remind later, or press 3 if you need help.",
-    safetyNote: "Reminder only. Follow the dosage prescribed by your doctor or caregiver."
+    retryPrefix: "I am calling again. ",
+    opening: (address) => `Hello ${address}, how are you?`,
+    medicineLine: (medicineInstruction) => `It is time for your ${medicineInstruction}.`,
+    closingQuestion: "Have you taken it?",
+    safetyNote: "Reminder only. Follow the dosage prescribed by your doctor or caregiver.",
+    dosagePhrases: []
   },
   Telugu: {
     language: "Telugu",
@@ -43,16 +46,31 @@ export const languageTemplates: Record<SupportedCallLanguage, LanguageTemplate> 
       before_food: "food mundu",
       after_food: "food tarvatha"
     },
-    retryPrefix: "Idi malli reminder. ",
-    opening: (address) => `${address}, idi mee medicine reminder.`,
-    medicineLine: (medicineInstruction) => `Mee ${medicineInstruction} teesukune time ayyindi.`,
-    dtmf: {
-      taken: "Teesukunte 1 press cheyyandi.",
-      later: "Tarvatha remind cheyyali ante 2 press cheyyandi.",
-      help: "Help kavali ante 3 press cheyyandi."
-    },
-    keypadLine: "Teesukunte 1 press cheyyandi. Tarvatha remind cheyyali ante 2 press cheyyandi. Help kavali ante 3 press cheyyandi.",
-    safetyNote: "Idi reminder matrame. Doctor leda caregiver cheppina dosage follow cheyyandi."
+    retryPrefix: "Malli okasari phone chestunnanu. ",
+    opening: (address) => `${address}, bagunnara?`,
+    medicineLine: (medicineInstruction) => `Mee ${medicineInstruction} vesukune time ayyindi.`,
+    closingQuestion: "Vesukunnara?",
+    safetyNote: "Idi reminder matrame. Doctor leda caregiver cheppina dosage follow cheyyandi.",
+    dosagePhrases: [
+      ["with warm water", "vedi neelltho"],
+      ["with water", "neelltho"],
+      ["with milk", "paalatho"],
+      ["with food", "food tho"],
+      ["empty stomach", "khaali kadupu tho"],
+      ["one and half", "okatinnara"],
+      ["half", "sagam"],
+      ["twice", "rendu sarlu"],
+      ["drops", "chukkalu"],
+      ["drop", "chukka"],
+      ["spoons", "spoonlu"],
+      ["tablets", "tabletlu"],
+      ["one", "oka"],
+      ["two", "rendu"],
+      ["three", "moodu"],
+      ["1", "oka"],
+      ["2", "rendu"],
+      ["3", "moodu"]
+    ]
   },
   Hindi: {
     language: "Hindi",
@@ -61,16 +79,31 @@ export const languageTemplates: Record<SupportedCallLanguage, LanguageTemplate> 
       before_food: "khane se pehle",
       after_food: "khane ke baad"
     },
-    retryPrefix: "Yeh dobara reminder hai. ",
-    opening: (address) => `Namaste ${address}, yeh aapka medicine reminder hai.`,
-    medicineLine: (medicineInstruction) => `Aapki ${medicineInstruction} lene ka samay ho gaya hai.`,
-    dtmf: {
-      taken: "Agar aapne le li hai toh 1 dabaiye.",
-      later: "Baad mein yaad dilana hai toh 2 dabaiye.",
-      help: "Help chahiye toh 3 dabaiye."
-    },
-    keypadLine: "Agar aapne le li hai toh 1 dabaiye. Baad mein yaad dilana hai toh 2 dabaiye. Help chahiye toh 3 dabaiye.",
-    safetyNote: "Yeh sirf reminder hai. Doctor ya caregiver ke bataye hue dosage ko follow kijiye."
+    retryPrefix: "Main dobara phone kar raha hoon. ",
+    opening: (address) => `Namaste ${address}, aap kaise hain?`,
+    medicineLine: (medicineInstruction) => `Aapki ${medicineInstruction} lene ka time ho gaya hai.`,
+    closingQuestion: "Aapne le li?",
+    safetyNote: "Yeh sirf reminder hai. Doctor ya caregiver ke bataye hue dosage ko follow kijiye.",
+    dosagePhrases: [
+      ["with warm water", "garam paani ke saath"],
+      ["with water", "paani ke saath"],
+      ["with milk", "doodh ke saath"],
+      ["with food", "khane ke saath"],
+      ["empty stomach", "khaali pet"],
+      ["one and half", "dedh"],
+      ["half", "aadha"],
+      ["twice", "do baar"],
+      ["drops", "boond"],
+      ["drop", "boond"],
+      ["spoons", "chammach"],
+      ["spoon", "chammach"],
+      ["one", "ek"],
+      ["two", "do"],
+      ["three", "teen"],
+      ["1", "ek"],
+      ["2", "do"],
+      ["3", "teen"]
+    ]
   },
   Tamil: {
     language: "Tamil",
@@ -79,16 +112,29 @@ export const languageTemplates: Record<SupportedCallLanguage, LanguageTemplate> 
       before_food: "saapadu munnaadi",
       after_food: "saapadu apram"
     },
-    retryPrefix: "Idhu marubadiyum reminder. ",
-    opening: (address) => `Vanakkam ${address}, idhu unga medicine reminder.`,
+    retryPrefix: "Marubadiyum phone panren. ",
+    opening: (address) => `Vanakkam ${address}, eppadi irukeenga?`,
     medicineLine: (medicineInstruction) => `Unga ${medicineInstruction} edukka neram aayiduchu.`,
-    dtmf: {
-      taken: "Eduthirundha 1 press pannunga.",
-      later: "Apram remind panna 2 press pannunga.",
-      help: "Help venumna 3 press pannunga."
-    },
-    keypadLine: "Eduthirundha 1 press pannunga. Apram remind panna 2 press pannunga. Help venumna 3 press pannunga.",
-    safetyNote: "Idhu reminder mattum. Doctor allathu caregiver sonna dosage-ai follow pannunga."
+    closingQuestion: "Eduthingala?",
+    safetyNote: "Idhu reminder mattum. Doctor allathu caregiver sonna dosage-ai follow pannunga.",
+    dosagePhrases: [
+      ["with warm water", "sudu thanni-yoda"],
+      ["with water", "thanni-yoda"],
+      ["with milk", "paal-oda"],
+      ["with food", "saapattoda"],
+      ["empty stomach", "veruma vayitrula"],
+      ["one and half", "onnarai"],
+      ["half", "paadhi"],
+      ["twice", "rendu thadava"],
+      ["drops", "sotthukkal"],
+      ["drop", "sotthu"],
+      ["one", "oru"],
+      ["two", "rendu"],
+      ["three", "moonu"],
+      ["1", "oru"],
+      ["2", "rendu"],
+      ["3", "moonu"]
+    ]
   },
   Kannada: {
     language: "Kannada",
@@ -97,15 +143,28 @@ export const languageTemplates: Record<SupportedCallLanguage, LanguageTemplate> 
       before_food: "oota modalu",
       after_food: "oota aadamele"
     },
-    retryPrefix: "Idu matte reminder. ",
-    opening: (address) => `Namaskara ${address}, idu nimma medicine reminder.`,
+    retryPrefix: "Matte phone maadtidini. ",
+    opening: (address) => `Namaskara ${address}, hegiddira?`,
     medicineLine: (medicineInstruction) => `Nimma ${medicineInstruction} tegoloke time aagide.`,
-    dtmf: {
-      taken: "Tegondiddare 1 press maadi.",
-      later: "Nantara remind maadbeku andre 2 press maadi.",
-      help: "Help beku andre 3 press maadi."
-    },
-    keypadLine: "Tegondiddare 1 press maadi. Nantara remind maadbeku andre 2 press maadi. Help beku andre 3 press maadi.",
-    safetyNote: "Idu reminder matra. Doctor athava caregiver helida dosage follow maadi."
+    closingQuestion: "Tegondira?",
+    safetyNote: "Idu reminder matra. Doctor athava caregiver helida dosage follow maadi.",
+    dosagePhrases: [
+      ["with warm water", "bisi neeru jothe"],
+      ["with water", "neeru jothe"],
+      ["with milk", "haalu jothe"],
+      ["with food", "oota jothe"],
+      ["empty stomach", "khaali hotte"],
+      ["one and half", "ondhuvare"],
+      ["half", "ardha"],
+      ["twice", "eradu sala"],
+      ["drops", "hanigalu"],
+      ["drop", "hani"],
+      ["one", "ondu"],
+      ["two", "eradu"],
+      ["three", "mooru"],
+      ["1", "ondu"],
+      ["2", "eradu"],
+      ["3", "mooru"]
+    ]
   }
 };

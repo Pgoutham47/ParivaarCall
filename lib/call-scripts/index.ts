@@ -5,7 +5,7 @@ import type {
   RespectMode,
   SupportedCallLanguage
 } from "@/lib/types";
-import { languageTemplates, supportedCallLanguages } from "@/lib/call-scripts/templates";
+import { languageTemplates, supportedCallLanguages, type LanguageTemplate } from "@/lib/call-scripts/templates";
 
 function normalizeLanguage(language: string | null | undefined): SupportedCallLanguage {
   const normalized = supportedCallLanguages.find((candidate) => candidate.toLowerCase() === language?.trim().toLowerCase());
@@ -63,6 +63,29 @@ export function getRelationshipAddress(
   return getLanguageTemplate(normalizedLanguage).defaultAddress;
 }
 
+// Food timing is already carried by the schedule's structured food_timing field,
+// so a caregiver also typing it into the dosage box would have it spoken twice -
+// and if the two disagree ("after food" typed, "before food" selected) the parent
+// hears a contradiction. The structured field wins; this strips the duplicate.
+const FOOD_TIMING_IN_DOSAGE = /\b(before|after)\s+(food|meals?|eating)\b/gi;
+
+// Rewrites the English dosage a caregiver typed ("1 tablet with water") into the
+// call language ("oka tablet neelltho"). Unrecognized words - brand names, "500
+// mg", or dosage already written in the local language - pass through unchanged.
+export function localizeDosageInstruction(dosage: string, template: LanguageTemplate) {
+  return template.dosagePhrases
+    .reduce(
+      (text, [english, local]) => text.replace(new RegExp(`\\b${escapeRegExp(english)}\\b`, "gi"), local),
+      dosage.replace(FOOD_TIMING_IN_DOSAGE, "")
+    )
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export function formatMedicineInstruction(
   medicineSchedule: {
     medicineName: string;
@@ -73,7 +96,8 @@ export function formatMedicineInstruction(
 ) {
   const template = getLanguageTemplate(language);
   const medicineName = medicineSchedule.medicineName.trim();
-  const dosageInstruction = medicineSchedule.dosageInstruction?.trim();
+  const rawDosage = medicineSchedule.dosageInstruction?.trim();
+  const dosageInstruction = rawDosage ? localizeDosageInstruction(rawDosage, template) : rawDosage;
   const foodTiming = medicineSchedule.foodTiming === "before_food" || medicineSchedule.foodTiming === "after_food"
     ? template.foodTiming[medicineSchedule.foodTiming]
     : null;
@@ -93,19 +117,16 @@ export function generateMedicineReminderScript(input: MedicineReminderScriptInpu
     template.language
   );
   const retryPrefix = input.retryCount > 0 ? template.retryPrefix : "";
-  const tonePrefix = input.voiceTone === "calm" ? "" : "";
   const scriptText = [
-    `${retryPrefix}${tonePrefix}${template.opening(address)}`,
+    `${retryPrefix}${template.opening(address)}`,
     template.medicineLine(medicineInstruction),
-    template.keypadLine
+    template.closingQuestion
   ].join(" ");
 
   return {
     language: template.language,
     scriptText,
-    ssmlText: `<speak>${scriptText}</speak>`,
     shortPreviewText: `${template.opening(address)} ${template.medicineLine(medicineInstruction)}`,
-    dtmfInstructions: template.dtmf,
     safetyNote: template.safetyNote
   };
 }

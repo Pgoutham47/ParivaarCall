@@ -1,4 +1,4 @@
-import { AlertTriangle, CircleAlert, PhoneOff } from "lucide-react";
+import { AlertTriangle, CircleAlert, PhoneMissed, PhoneOff } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { MarkAlertReadButton } from "@/components/dashboard/calls/MarkAlertReadButton";
 import { Card } from "@/components/ui/Card";
@@ -17,7 +17,8 @@ const severityTone: Record<AlertSeverity, "green" | "amber" | "red" | "blue" | "
 const alertIcon: Record<AlertType, typeof AlertTriangle> = {
   missed_medicine: AlertTriangle,
   no_answer: PhoneOff,
-  need_help: CircleAlert
+  need_help: CircleAlert,
+  call_failed: PhoneMissed
 };
 
 const alertSurface: Record<AlertSeverity, string> = {
