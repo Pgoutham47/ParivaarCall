@@ -270,6 +270,8 @@ Supported script languages:
 
 If a parent or setting has an unsupported language, the script generator falls back to English and logs a warning. If voice settings use `Parent preferred language`, the parent language is used when supported.
 
+Scripts are written in the parent's own writing system — తెలుగు, हिन्दी, தமிழ், ಕನ್ನಡ — never romanized. Indic text-to-speech voices take their rhythm and stress from the native script; fed Latin transliteration such as `vesukunnara` they must guess the pronunciation, which is what makes a call sound robotic. Medicine names stay as the caregiver typed them, because families say brand names in English. The Bolna agent prompt has to enforce the same rule for the lines it improvises — see [docs/bolna-agent-prompt.md](./docs/bolna-agent-prompt.md).
+
 Each generated script:
 
 - Mentions the medicine name.

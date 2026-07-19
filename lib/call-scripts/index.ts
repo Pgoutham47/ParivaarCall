@@ -24,43 +24,34 @@ export function getLanguageTemplate(language: string | null | undefined) {
   return languageTemplates[normalizeLanguage(language)];
 }
 
+// Caregivers pick the relationship from a dropdown, but older rows and free
+// text still arrive in several spellings, so each kind is matched on keywords.
+const RELATIONSHIP_KEYWORDS: ReadonlyArray<readonly [keyof LanguageTemplate["address"], readonly string[]]> = [
+  ["father", ["father", "dad", "appa", "nanna", "papa"]],
+  ["mother", ["mother", "mom", "amma", "mummy"]],
+  ["uncle", ["uncle", "mama", "chacha"]],
+  ["aunt", ["aunt", "attha", "chithi"]]
+];
+
 export function getRelationshipAddress(
   relationship: string | null | undefined,
   language: string | null | undefined,
   respectMode: RespectMode = "formal"
 ) {
   const normalizedRelationship = relationship?.trim().toLowerCase() ?? "";
-  const normalizedLanguage = normalizeLanguage(language);
+  const template = getLanguageTemplate(language);
+  const match = RELATIONSHIP_KEYWORDS.find(([, keywords]) =>
+    keywords.some((keyword) => normalizedRelationship.includes(keyword))
+  );
 
-  if (respectMode === "casual") {
-    if (normalizedRelationship.includes("father") || normalizedRelationship.includes("dad") || normalizedRelationship.includes("appa")) {
-      return normalizedLanguage === "Hindi" ? "Papa" : "Appa";
-    }
-
-    if (normalizedRelationship.includes("aunt")) {
-      return normalizedLanguage === "English" ? "Aunty" : "Amma";
-    }
-
-    return "Amma";
+  if (!match) {
+    return template.address.fallback;
   }
 
-  if (normalizedRelationship.includes("father") || normalizedRelationship.includes("dad") || normalizedRelationship.includes("appa")) {
-    return normalizedLanguage === "Hindi" ? "Papa ji" : "Appa";
-  }
+  const address = template.address[match[0]];
 
-  if (normalizedRelationship.includes("mother") || normalizedRelationship.includes("mom") || normalizedRelationship.includes("amma")) {
-    return normalizedLanguage === "Hindi" ? "Amma ji" : "Amma";
-  }
-
-  if (normalizedRelationship.includes("uncle")) {
-    return normalizedLanguage === "English" ? "Uncle" : "Appa";
-  }
-
-  if (normalizedRelationship.includes("aunt")) {
-    return normalizedLanguage === "English" ? "Aunty" : "Amma";
-  }
-
-  return getLanguageTemplate(normalizedLanguage).defaultAddress;
+  // `fallback` is a plain string; the four relationship entries are objects.
+  return typeof address === "string" ? address : address[respectMode];
 }
 
 // Food timing is already carried by the schedule's structured food_timing field,
