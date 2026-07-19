@@ -84,8 +84,15 @@ async function handle(request: NextRequest) {
           throw new Error(enrichError.message);
         }
 
-        await finalizeCallResult(supabase, callLog.id, toCallResult(lookup.payload));
-        finalized += 1;
+        // Guarded: a late webhook may be finalizing this same call right now.
+        const applied = await finalizeCallResult(supabase, callLog.id, toCallResult(lookup.payload), {
+          onlyIfStatusIn: ["calling", "pending"]
+        });
+
+        if (applied) {
+          finalized += 1;
+        }
+
         continue;
       }
 
@@ -98,14 +105,22 @@ async function handle(request: NextRequest) {
         continue;
       }
 
-      await finalizeCallResult(supabase, callLog.id, {
-        status: "failed",
-        responseType: "no_response",
-        notes: lookup.ok
-          ? `Call was still "${lookup.payload.status}" after ${GIVE_UP_AFTER_MINUTES} minutes; marked failed by reconciliation.`
-          : `No call result after ${GIVE_UP_AFTER_MINUTES} minutes (${lookup.message}); marked failed by reconciliation.`
-      });
-      gaveUp += 1;
+      const gaveUpResult = await finalizeCallResult(
+        supabase,
+        callLog.id,
+        {
+          status: "failed",
+          responseType: "no_response",
+          notes: lookup.ok
+            ? `Call was still "${lookup.payload.status}" after ${GIVE_UP_AFTER_MINUTES} minutes; marked failed by reconciliation.`
+            : `No call result after ${GIVE_UP_AFTER_MINUTES} minutes (${lookup.message}); marked failed by reconciliation.`
+        },
+        { onlyIfStatusIn: ["calling", "pending"] }
+      );
+
+      if (gaveUpResult) {
+        gaveUp += 1;
+      }
     } catch (error) {
       errors.push(error instanceof Error ? error.message : "Unknown reconciliation error.");
     }
