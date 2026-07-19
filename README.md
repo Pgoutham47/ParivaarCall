@@ -182,7 +182,7 @@ In development only, a logged-in dashboard user can trigger these routes from th
 - `POST /api/calls/process` processes due pending call logs and returns outcome counts (Bolna calls count as `calling` until the webhook lands).
 - `POST /api/calls/process-one` processes one call log for development testing; returns 409 if the log is no longer pending.
 - `POST /api/calls/reconcile` (also GET) finds calls stuck in `calling` for 10+ minutes, polls the Bolna execution API for their result, finalizes completed ones, and marks anything unresolved after 60 minutes as `failed` so alerts still fire when a webhook is lost.
-- `POST /api/webhooks/bolna` receives Bolna call results (status, extracted `reminder_outcome`, transcript, recording) and finalizes the matching call log; protected by `BOLNA_WEBHOOK_SECRET` via `x-webhook-secret` header or `?secret=` query param.
+- `POST /api/webhooks/bolna` receives Bolna call results (status, extracted `reminder_outcome`, transcript, recording) and finalizes the matching call log; protected by `BOLNA_WEBHOOK_SECRET` via `x-webhook-secret` header or `?secret=` query param. Events whose status is still queued/ringing/in-progress only store the transcript and recording — they never finalize the call, so a mid-call event cannot close a reminder before the parent has answered. Finalization claims the row, so a redelivered webhook cannot create a second alert or a second retry.
 - `POST /api/alerts/[alertId]/read` marks one alert as read for the logged-in caregiver.
 
 Example local testing:

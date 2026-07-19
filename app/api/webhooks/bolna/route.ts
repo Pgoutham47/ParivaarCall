@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { toCallResult, type BolnaExecutionPayload } from "@/lib/call-providers/bolna-results";
+import { isExecutionInProgress, toCallResult, type BolnaExecutionPayload } from "@/lib/call-providers/bolna-results";
 import { finalizeCallResult, findCallLogByProviderCallId } from "@/lib/services/call-engine";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -69,7 +69,9 @@ export async function POST(request: NextRequest) {
   const { error: enrichError } = await supabase
     .from("call_logs")
     .update({
-      transcript: payload.transcript ?? null,
+      // Never overwrite a transcript or recording we already have with a null
+      // from an earlier event.
+      ...(payload.transcript ? { transcript: payload.transcript } : {}),
       call_provider: "bolna",
       provider_call_id: String(providerCallId),
       ...(recordingUrl
@@ -82,8 +84,39 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: enrichError.message }, { status: 500 });
   }
 
+  // Bolna also emits events while the call is still queued, ringing, or in
+  // progress. Finalizing on one of those would close the call seconds after it
+  // started and, worse, make the app ignore the real outcome that arrives
+  // later - including a parent asking for help.
+  if (isExecutionInProgress(payload.status)) {
+    return NextResponse.json({
+      ok: true,
+      callLogId: callLog.id,
+      status: "calling",
+      note: `Ignored in-progress event "${payload.status}".`
+    });
+  }
+
   const result = toCallResult(payload);
-  const finalized = await finalizeCallResult(supabase, callLog.id, result);
+
+  // "missed" is the fallback for a payload we could not interpret. Log the
+  // status in production too, otherwise a misconfigured agent looks exactly
+  // like a parent who stayed silent.
+  if (result.status === "missed" && !payload.extracted_data && !payload.transcript) {
+    console.warn(
+      `[bolna webhook] unrecognized terminal payload; defaulting to missed. status="${payload.status}" execution=${providerCallId}`
+    );
+  }
+
+  // Claim the row: Bolna can deliver the same result twice, and the reconcile
+  // job may be finalizing the same call concurrently.
+  const finalized = await finalizeCallResult(supabase, callLog.id, result, {
+    onlyIfStatusIn: ["calling", "pending"]
+  });
+
+  if (!finalized) {
+    return NextResponse.json({ ok: true, callLogId: callLog.id, note: "Already finalized by another delivery." });
+  }
 
   return NextResponse.json({
     ok: true,

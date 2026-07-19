@@ -372,8 +372,17 @@ export async function getPendingCalls(supabase: Client) {
   return (data ?? []) as CallLogWithRelations[];
 }
 
-export async function updateCallResult(supabase: Client, callLogId: string, result: CallAttemptResult) {
-  const { data, error } = await supabase
+// `onlyIfStatusIn` makes finalization a claim rather than a blind write. Bolna
+// can deliver the same result more than once, and the reconcile job can race a
+// late webhook; without the guard each delivery would create its own alert and
+// its own retry.
+export async function updateCallResult(
+  supabase: Client,
+  callLogId: string,
+  result: CallAttemptResult,
+  options?: { onlyIfStatusIn?: CallStatus[] }
+) {
+  let query = supabase
     .from("call_logs")
     .update({
       call_status: result.status,
@@ -381,9 +390,13 @@ export async function updateCallResult(supabase: Client, callLogId: string, resu
       call_ended_at: new Date().toISOString(),
       notes: result.notes ?? null
     })
-    .eq("id", callLogId)
-    .select("*")
-    .single();
+    .eq("id", callLogId);
+
+  if (options?.onlyIfStatusIn) {
+    query = query.in("call_status", options.onlyIfStatusIn);
+  }
+
+  const { data, error } = await query.select("*").maybeSingle();
 
   if (error) {
     throw new Error(error.message);
@@ -471,8 +484,20 @@ export async function createAlertFromCallResult(supabase: Client, callLog: CallL
   return data;
 }
 
-export async function finalizeCallResult(supabase: Client, callLogId: string, result: CallAttemptResult) {
-  const updated = await updateCallResult(supabase, callLogId, result);
+export async function finalizeCallResult(
+  supabase: Client,
+  callLogId: string,
+  result: CallAttemptResult,
+  options?: { onlyIfStatusIn?: CallStatus[] }
+) {
+  const updated = await updateCallResult(supabase, callLogId, result, options);
+
+  // Someone else finalized this call first. Doing nothing here is what keeps
+  // duplicate alerts and duplicate retries from being created.
+  if (!updated) {
+    return null;
+  }
+
   const updatedWithRelations = await getCallLogWithRelations(supabase, updated.id);
   const settings = await getVoiceSettings(supabase, updated.caregiver_id);
   let retryCreated = false;
@@ -570,7 +595,7 @@ export async function processPendingCall(
       notes: `Call could not be placed: ${message}`
     });
 
-    return { ...failed, providerCallId: undefined };
+    return failed ? { ...failed, providerCallId: undefined } : null;
   }
 
   if (placement.kind === "initiated") {
@@ -600,7 +625,9 @@ export async function processPendingCall(
     };
   }
 
-  return { ...(await finalizeCallResult(supabase, callLogId, placement.result)), providerCallId: undefined };
+  const completed = await finalizeCallResult(supabase, callLogId, placement.result);
+
+  return completed ? { ...completed, providerCallId: undefined } : null;
 }
 
 export async function getDashboardCallStats(supabase: Client) {
