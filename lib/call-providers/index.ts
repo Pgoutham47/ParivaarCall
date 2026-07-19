@@ -1,18 +1,15 @@
 import type { CallProvider } from "@/lib/types";
-import { createExotelCallProvider } from "@/lib/call-providers/exotel";
+import { createBolnaCallProvider } from "@/lib/call-providers/bolna";
 import { createSimulatedCallProvider } from "@/lib/call-providers/simulated";
-import { createTwilioCallProvider } from "@/lib/call-providers/twilio";
 
-export type CallProviderName = "simulated" | "exotel" | "twilio";
+export type CallProviderName = "simulated" | "bolna";
 
 export function getCallProvider(name: string | undefined = process.env.CALL_PROVIDER): CallProvider {
   const providerName = (name ?? "simulated") as CallProviderName;
 
   switch (providerName) {
-    case "exotel":
-      return createExotelCallProvider();
-    case "twilio":
-      return createTwilioCallProvider();
+    case "bolna":
+      return createBolnaCallProvider();
     case "simulated":
       return createSimulatedCallProvider();
     default:

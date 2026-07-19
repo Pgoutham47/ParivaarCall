@@ -2,12 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Play, RefreshCw, Volume2 } from "lucide-react";
+import { Play, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 
 type ActionState = {
-  loading: "generate" | "process" | "generate-pending-audio" | null;
+  loading: "generate" | "process" | null;
   message: string | null;
 };
 
@@ -15,7 +15,7 @@ export function DevCallEnginePanel() {
   const router = useRouter();
   const [state, setState] = useState<ActionState>({ loading: null, message: null });
 
-  async function runAction(action: "generate" | "process" | "generate-pending-audio") {
+  async function runAction(action: "generate" | "process") {
     setState({ loading: action, message: null });
 
     try {
@@ -39,9 +39,7 @@ export function DevCallEnginePanel() {
             : created === 0 && skippedDuplicates === 0
             ? `No call logs created. Found ${activeSchedulesFound} active schedule${activeSchedulesFound === 1 ? "" : "s"}, ${eligibleSchedules} eligible for today.`
             : `Created ${created}, skipped ${skippedDuplicates} duplicate${skippedDuplicates === 1 ? "" : "s"}.`
-          : action === "process"
-            ? `Processed ${payload.processed ?? 0}: ${payload.confirmed ?? 0} confirmed, ${payload.snoozed ?? 0} snoozed, ${payload.no_answer ?? 0} no answer.`
-            : `Audio processed ${payload.processed ?? 0}: ${payload.generated ?? 0} generated, ${payload.failed ?? 0} failed.`;
+          : `Processed ${payload.processed ?? 0}: ${payload.calling ?? 0} dialing, ${payload.confirmed ?? 0} confirmed, ${payload.snoozed ?? 0} snoozed, ${payload.no_answer ?? 0} no answer.`;
 
       setState({ loading: null, message });
       router.refresh();
@@ -58,7 +56,9 @@ export function DevCallEnginePanel() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="text-sm font-bold uppercase tracking-[0.14em] text-sky-800">Development call engine</p>
-          <p className="mt-1 text-sm leading-6 text-sage-700">Simulation only. No phone, SMS, or WhatsApp messages are sent.</p>
+          <p className="mt-1 text-sm leading-6 text-sage-700">
+            With CALL_PROVIDER=simulated no real calls are placed. With CALL_PROVIDER=bolna, calls dial out through the Bolna voice agent over Vobiz.
+          </p>
           {state.message ? <p className="mt-2 text-sm font-semibold text-care-ink">{state.message}</p> : null}
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -78,15 +78,6 @@ export function DevCallEnginePanel() {
             onClick={() => runAction("process")}
           >
             Process pending calls
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            icon={<Volume2 className="h-4 w-4" aria-hidden="true" />}
-            disabled={state.loading !== null}
-            onClick={() => runAction("generate-pending-audio")}
-          >
-            Generate Pending Audio
           </Button>
         </div>
       </div>

@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getProtectedCronClient } from "@/lib/services/api-auth";
 import { generateTodayCallLogs } from "@/lib/services/call-engine";
 
+// Vercel cron invokes routes with GET.
+export async function GET(request: NextRequest) {
+  return POST(request);
+}
+
 export async function POST(request: NextRequest) {
   try {
     const protectedClient = await getProtectedCronClient(request);

@@ -1,4 +1,4 @@
-import type { CallAttemptResult, CallJob, CallProvider, SimulatedCallResponse } from "@/lib/types";
+import type { CallAttemptResult, CallJob, CallPlacement, CallProvider, SimulatedCallResponse } from "@/lib/types";
 
 const responseMap: Record<SimulatedCallResponse, CallAttemptResult> = {
   confirmed: {
@@ -53,12 +53,12 @@ function chooseRandomResponse(): SimulatedCallResponse {
 export function createSimulatedCallProvider(): CallProvider {
   return {
     name: "simulated",
-    async placeCall(_job: CallJob, options?: { simulatedResponse?: SimulatedCallResponse }) {
+    async placeCall(_job: CallJob, options?: { simulatedResponse?: SimulatedCallResponse }): Promise<CallPlacement> {
       const randomSimulationAllowed =
         process.env.NODE_ENV !== "production" || process.env.ALLOW_RANDOM_SIMULATED_CALLS === "true";
       const response = options?.simulatedResponse ?? (randomSimulationAllowed ? chooseRandomResponse() : "no_answer");
 
-      return responseMap[response];
+      return { kind: "completed", result: responseMap[response] };
     }
   };
 }
