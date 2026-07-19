@@ -26,12 +26,20 @@ export async function POST(request: NextRequest) {
     simulatedResponse: body.simulatedResponse
   });
 
+  if (!result) {
+    return NextResponse.json(
+      { error: "Call log is not pending. It was already processed or a call is in progress." },
+      { status: 409 }
+    );
+  }
+
   return NextResponse.json({
     callLogId: result.callLog.id,
-    status: result.result.status,
-    responseType: result.result.responseType,
+    status: result.status,
+    responseType: result.responseType,
     retryCreated: result.retryCreated,
     alertCreated: result.alertCreated,
+    providerCallId: result.providerCallId ?? null,
     mode: protectedClient.mode
   });
 }
