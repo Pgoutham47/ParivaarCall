@@ -5,42 +5,43 @@ const config: Config = {
   content: [
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./lib/**/*.{js,ts,jsx,tsx,mdx}"
+    "./lib/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {
       colors: {
         sage: {
-          50: "#f5f8f5",
-          100: "#e5eee6",
-          200: "#cadccd",
-          300: "#a6c2ac",
-          400: "#7da184",
-          500: "#5f8668",
-          600: "#496a51",
-          700: "#3d5644",
-          800: "#344739",
-          900: "#2d3d32"
+          50: "#f0f5ef",
+          100: "#e9eee7",
+          200: "#dce4db",
+          300: "#bfd0bf",
+          400: "#91ad98",
+          500: "#718777",
+          600: "#5d7264",
+          700: "#3d5e49",
+          800: "#234b3d",
+          900: "#183b2f",
         },
         care: {
           blush: "#f8ebe7",
           peach: "#f5c8b5",
-          cream: "#fffaf3",
-          ink: "#24322b",
+          cream: "#faf8f2",
+          ink: "#20352b",
           mint: "#e8f4ef",
-          blue: "#dbeaf7"
-        }
+          blue: "#dbeaf7",
+        },
       },
       boxShadow: {
-        soft: "0 18px 45px rgba(49, 78, 64, 0.10)",
-        card: "0 10px 28px rgba(36, 50, 43, 0.08)"
+        soft: "0 24px 64px rgba(27, 54, 37, 0.12)",
+        card: "0 2px 6px rgba(36, 50, 43, 0.04)",
       },
       fontFamily: {
-        sans: ["var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"]
-      }
-    }
+        sans: ["var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"],
+        display: ["Georgia", "Times New Roman", "serif"],
+      },
+    },
   },
-  plugins: [forms]
+  plugins: [forms],
 };
 
 export default config;

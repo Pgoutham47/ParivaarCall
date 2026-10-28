@@ -1,49 +1,79 @@
-import { freeTierCalling } from "@/lib/calling-access";
 import type { ReactNode } from "react";
-import { Bell, UserRound } from "lucide-react";
+import { ChevronDown, Info } from "lucide-react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { BrandLogo } from "@/components/ui/BrandLogo";
-import { LogoutButton } from "@/components/auth/LogoutButton";
+import { freeTierCalling } from "@/lib/calling-access";
 import { BottomNav, SidebarNav } from "@/components/layout/DashboardNav";
+import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { createClient } from "@/lib/supabase/server";
 
-export default async function DashboardLayout({ children }: { children: ReactNode }) {
+export default async function DashboardLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
   const supabase = await createClient();
   const {
-    data: { user }
+    data: { user },
   } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
-
+  if (!user) redirect("/login");
+  const name =
+    typeof user.user_metadata?.full_name === "string" &&
+    user.user_metadata.full_name.trim()
+      ? user.user_metadata.full_name.trim()
+      : "Your account";
+  const { count } = await supabase
+    .from("alerts")
+    .select("id", { count: "exact", head: true })
+    .eq("is_read", false);
   return (
-    <div className="min-h-screen">
-      <SidebarNav />
-      <div className="lg:pl-72">
-        <header className="sticky top-0 z-20 border-b border-sage-100 bg-care-cream/90 px-4 py-3 backdrop-blur sm:px-6 lg:px-8">
-          <Link href="/" className="focus-ring mb-2 block w-fit rounded-lg lg:hidden">
-            <BrandLogo />
-          </Link>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sage-600">Caregiver dashboard</p>
-              <p className="max-w-[45vw] truncate text-xs text-sage-700 sm:text-sm">Signed in as {user.email}</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Link href="/dashboard/alerts" className="focus-ring flex h-10 w-10 items-center justify-center rounded-lg bg-white text-sage-700 shadow-sm" aria-label="Alerts">
-                <Bell className="h-5 w-5" aria-hidden="true" />
-              </Link>
-              <Link href="/dashboard/settings" className="focus-ring flex h-10 w-10 items-center justify-center rounded-lg bg-sage-700 text-white shadow-sm" aria-label="Account settings">
-                <UserRound className="h-5 w-5" aria-hidden="true" />
-              </Link>
-              <LogoutButton />
-            </div>
-          </div>
-        </header>
-        <main className="px-4 py-6 pb-28 sm:px-6 lg:px-8 lg:pb-10">
-          {freeTierCalling() ? <aside className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"><strong>Free-tier calling: verified numbers only.</strong> We currently use free-tier services. Only numbers verified for this account can receive calls. Adding a parent does not verify their number; ask your account administrator to arrange verification.</aside> : null}
+    <div className="min-h-screen bg-[#f7f8f5]">
+      <a
+        href="#dashboard-content"
+        className="skip-link focus-ring rounded-xl bg-white px-4 py-3 text-sm font-semibold shadow-card"
+      >
+        Skip to content
+      </a>
+      <SidebarNav name={name} email={user.email ?? ""} />
+      <div className="lg:pl-[248px]">
+        <DashboardHeader name={name} unread={count ?? 0} />
+        <main
+          id="dashboard-content"
+          className="mx-auto max-w-[1440px] px-5 py-7 pb-28 sm:px-8 sm:py-8 lg:px-10 lg:pb-12"
+        >
+          {freeTierCalling() ? (
+            <details className="group mb-7 rounded-xl border border-[#e5dfc7] bg-[#faf7ec] px-4 py-3 text-xs text-[#756344]">
+              <summary className="focus-ring flex cursor-pointer items-center gap-2.5 rounded leading-5">
+                <Info size={15} className="shrink-0" aria-hidden="true" />
+                <span>
+                  <span className="font-semibold">Verified numbers only.</span>{" "}
+                  <span className="hidden sm:inline">
+                    Your account uses free-tier calling.
+                  </span>
+                </span>
+                <span className="ml-auto flex shrink-0 items-center gap-1.5 text-[11px]">
+                  Details
+                  <ChevronDown
+                    size={13}
+                    className="transition-transform group-open:rotate-180"
+                    aria-hidden="true"
+                  />
+                </span>
+              </summary>
+              <p className="mt-3 max-w-3xl border-t border-[#e5dfc7] pt-3 leading-6">
+                Live calls can only reach numbers verified for your account.
+                Adding a parent does not verify their number. Your account
+                administrator can arrange verification.{" "}
+                <Link
+                  href="/dashboard/parents"
+                  className="focus-ring rounded font-semibold underline underline-offset-4"
+                >
+                  Review your family’s calling access
+                </Link>
+                .
+              </p>
+            </details>
+          ) : null}
           {children}
         </main>
       </div>

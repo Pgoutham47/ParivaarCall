@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 export function BrandLogo({
   className,
   iconOnly = false,
-  priority = false
+  priority = false,
 }: {
   className?: string;
   iconOnly?: boolean;
@@ -16,8 +16,12 @@ export function BrandLogo({
     <Image
       src={iconOnly ? icon : logo}
       alt="ParivaarCall"
-      className={cn("block h-auto shrink-0", iconOnly ? "w-12" : "w-52 sm:w-64", className)}
-      sizes={iconOnly ? "48px" : "(max-width: 640px) 208px, 256px"}
+      className={cn(
+        "block h-auto shrink-0",
+        iconOnly ? "w-12" : "w-[184px] sm:w-[200px]",
+        className,
+      )}
+      sizes={iconOnly ? "48px" : "(max-width: 640px) 184px, 200px"}
       priority={priority}
     />
   );

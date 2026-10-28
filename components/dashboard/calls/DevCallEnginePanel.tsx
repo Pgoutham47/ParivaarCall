@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Play, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 
 type ActionState = {
   loading: "generate" | "process" | null;
@@ -13,17 +12,26 @@ type ActionState = {
 
 export function DevCallEnginePanel() {
   const router = useRouter();
-  const [state, setState] = useState<ActionState>({ loading: null, message: null });
+  const [state, setState] = useState<ActionState>({
+    loading: null,
+    message: null,
+  });
 
   async function runAction(action: "generate" | "process") {
     setState({ loading: action, message: null });
 
     try {
       const response = await fetch(`/api/calls/${action}`, { method: "POST" });
-      const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+      const payload = (await response.json().catch(() => ({}))) as Record<
+        string,
+        unknown
+      >;
 
       if (!response.ok) {
-        setState({ loading: null, message: String(payload.error ?? "Call engine action failed.") });
+        setState({
+          loading: null,
+          message: String(payload.error ?? "Call engine action failed."),
+        });
         return;
       }
 
@@ -31,14 +39,16 @@ export function DevCallEnginePanel() {
       const skippedDuplicates = Number(payload.skippedDuplicates ?? 0);
       const activeSchedulesFound = Number(payload.activeSchedulesFound ?? 0);
       const eligibleSchedules = Number(payload.eligibleSchedules ?? 0);
-      const errors = Array.isArray(payload.errors) ? payload.errors.filter((item) => typeof item === "string") : [];
+      const errors = Array.isArray(payload.errors)
+        ? payload.errors.filter((item) => typeof item === "string")
+        : [];
       const message =
         action === "generate"
           ? errors.length > 0
             ? `Call log generation had errors: ${errors[0]}`
             : created === 0 && skippedDuplicates === 0
-            ? `No call logs created. Found ${activeSchedulesFound} active schedule${activeSchedulesFound === 1 ? "" : "s"}, ${eligibleSchedules} eligible for today.`
-            : `Created ${created}, skipped ${skippedDuplicates} duplicate${skippedDuplicates === 1 ? "" : "s"}.`
+              ? `No call logs created. Found ${activeSchedulesFound} active schedule${activeSchedulesFound === 1 ? "" : "s"}, ${eligibleSchedules} eligible for today.`
+              : `Created ${created}, skipped ${skippedDuplicates} duplicate${skippedDuplicates === 1 ? "" : "s"}.`
           : `Processed ${payload.processed ?? 0}: ${payload.calling ?? 0} dialing, ${payload.confirmed ?? 0} confirmed, ${payload.snoozed ?? 0} snoozed, ${payload.no_answer ?? 0} no answer.`;
 
       setState({ loading: null, message });
@@ -46,20 +56,34 @@ export function DevCallEnginePanel() {
     } catch (error) {
       setState({
         loading: null,
-        message: error instanceof Error ? error.message : "Call engine action failed. Check the browser console or server logs."
+        message:
+          error instanceof Error
+            ? error.message
+            : "Call engine action failed. Check the browser console or server logs.",
       });
     }
   }
 
   return (
-    <Card className="border-sky-100 bg-sky-50/70">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <details className="rounded-xl border border-dashed border-sage-200 px-5 py-3">
+      <summary className="focus-ring cursor-pointer rounded text-xs font-medium text-sage-500">
+        Development tools
+      </summary>
+      <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p className="text-sm font-bold uppercase tracking-[0.14em] text-sky-800">Development call engine</p>
-          <p className="mt-1 text-sm leading-6 text-sage-700">
-            Development tools: simulations do not place real calls. Live calls require the calling service to be configured.
+          <p className="text-sm font-semibold text-care-ink">
+            Reminder processing
           </p>
-          {state.message ? <p className="mt-2 text-sm font-semibold text-care-ink">{state.message}</p> : null}
+          <p className="mt-1 text-sm leading-6 text-sage-700">
+            These controls use the configured calling service. Processing
+            pending calls can place live calls when the live provider is
+            enabled.
+          </p>
+          {state.message ? (
+            <p role="status" className="mt-2 text-sm font-medium text-care-ink">
+              {state.message}
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <Button
@@ -81,6 +105,6 @@ export function DevCallEnginePanel() {
           </Button>
         </div>
       </div>
-    </Card>
+    </details>
   );
 }

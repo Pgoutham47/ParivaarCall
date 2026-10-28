@@ -1,134 +1,92 @@
-import Link from "next/link";
-import { PhoneCall } from "lucide-react";
+import type { Metadata } from "next";
+import { ArrowRight, PhoneCall } from "lucide-react";
 import { AutoRefresh } from "@/components/dashboard/AutoRefresh";
 import { PageHeader } from "@/components/dashboard/PageHeader";
-import { CallSimulationActions } from "@/components/dashboard/calls/CallSimulationActions";
+import { CallHistoryList } from "@/components/dashboard/calls/CallHistoryList";
 import { DevCallEnginePanel } from "@/components/dashboard/calls/DevCallEnginePanel";
-import { ScriptPreviewButton } from "@/components/dashboard/calls/ScriptPreviewButton";
+import { HistoryPagination } from "@/components/dashboard/calls/HistoryPagination";
+import { RefreshPageButton } from "@/components/dashboard/calls/RefreshPageButton";
+import { LinkButton } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { StatusBadge } from "@/components/ui/StatusBadge";
 import { listCallLogs } from "@/lib/services/calls-alerts";
 import { createClient } from "@/lib/supabase/server";
-import type { CallStatus } from "@/lib/types";
 
-const statusTone: Record<CallStatus, "green" | "amber" | "red" | "blue" | "neutral"> = {
-  pending: "blue",
-  calling: "amber",
-  confirmed: "green",
-  missed: "red",
-  no_answer: "amber",
-  snoozed: "blue",
-  need_help: "red",
-  failed: "red"
-};
+export const metadata: Metadata = { title: "Call history" };
 
-export default async function CallsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+export default async function CallsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const params = await searchParams;
-  const page = Math.max(1, Math.min(10000, Math.floor(Number(params.page) || 1)));
+  const page = Math.max(
+    1,
+    Math.min(10000, Math.floor(Number(params.page) || 1)),
+  );
   const supabase = await createClient();
 
   try {
     const rows = await listCallLogs(supabase, page);
-    const callLogs = rows.slice(0, 25);
-
+    const calls = rows.slice(0, 25);
     return (
-      <div className="space-y-6">
+      <div className="space-y-7">
         <PageHeader
-          eyebrow="Call history"
-          title="Medicine call logs"
-          description="Call outcomes appear here automatically as calls complete."
+          eyebrow="STAY IN THE LOOP"
+          title="Call history"
+          description="Every reminder and response, in one place. Open a call to see the conversation."
         />
-
         <AutoRefresh />
-
+        {calls.length > 0 ? (
+          <CallHistoryList calls={calls} />
+        ) : (
+          <Card className="px-6 py-14 text-center">
+            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-sage-50 text-sage-600">
+              <PhoneCall className="h-6 w-6" aria-hidden="true" />
+            </span>
+            <h2 className="mt-5 text-lg font-semibold text-care-ink">
+              {page > 1
+                ? "You’ve reached the end"
+                : "Your first conversation starts here"}
+            </h2>
+            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-sage-600">
+              {page > 1
+                ? "There are no older calls on this page. Return to the latest results to catch up."
+                : "Once a reminder call is scheduled, its progress and outcome will appear here automatically."}
+            </p>
+            <LinkButton
+              href={page > 1 ? "/dashboard/calls" : "/dashboard/medicines"}
+              className="mt-6"
+              variant="secondary"
+              icon={<ArrowRight className="h-4 w-4" aria-hidden="true" />}
+            >
+              {page > 1 ? "Latest calls" : "Manage reminders"}
+            </LinkButton>
+          </Card>
+        )}
+        <HistoryPagination
+          page={page}
+          hasNext={rows.length > 25}
+          count={calls.length}
+          path="/dashboard/calls"
+        />
         {process.env.NODE_ENV !== "production" ? <DevCallEnginePanel /> : null}
-
-        <section className="grid gap-4">
-          {callLogs.length === 0 ? (
-            <Card>
-              <p className="text-base font-semibold text-care-ink">No call logs yet</p>
-              <p className="mt-2 text-sm leading-6 text-sage-700">Add a medicine reminder or make a test call from the Parents page. Results will appear here.</p>
-            </Card>
-          ) : (
-            callLogs.map((call) => (
-              <Card key={call.id} className="grid gap-4 md:grid-cols-[auto_1fr_auto] md:items-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-care-blue text-sky-800">
-                  <PhoneCall className="h-6 w-6" aria-hidden="true" />
-                </div>
-                <div>
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <h2 className="text-lg font-bold text-care-ink">{call.parentName}</h2>
-                    <StatusBadge label={call.status} tone={statusTone[call.status]} />
-                  </div>
-                  <p className="mt-1 text-sm text-sage-700">
-                    {call.medicine} at {call.scheduledTime}
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-sage-700">{call.response}</p>
-                  <div className="mt-4 rounded-lg bg-sage-50 p-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <StatusBadge label={call.scriptText ? "script generated" : "script missing"} tone={call.scriptText ? "green" : "amber"} />
-                      <StatusBadge label={call.scriptLanguage} tone="blue" />
-
-                    </div>
-                    <p className="mt-3 text-sm leading-6 text-sage-700">{call.shortPreviewText}</p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <ScriptPreviewButton
-                        parentName={call.parentName}
-                        medicineName={call.medicine}
-                        language={call.scriptLanguage}
-                        scriptText={call.scriptText}
-                        safetyNote={call.safetyNote}
-                      />
-                    </div>
-                    {call.transcript ? (
-                      <div className="mt-3">
-                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-sage-600">Call transcript</p>
-                        <p className="mt-1 whitespace-pre-line text-sm leading-6 text-sage-700">{call.transcript}</p>
-                      </div>
-                    ) : null}
-                    {call.audioUrl ? (
-                      <div className="mt-3">
-                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-sage-600">Call recording</p>
-                        <audio className="mt-1 w-full" controls preload="none">
-                          <source src={call.audioUrl} />
-                        </audio>
-                      </div>
-                    ) : null}
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-sage-600">
-
-                    <span>Created: {call.createdAt}</span>
-                  </div>
-                  {process.env.NODE_ENV !== "production" ? <CallSimulationActions callLogId={call.id} /> : null}
-                </div>
-                <div className="rounded-lg bg-sage-50 px-4 py-3 text-left md:text-center">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-sage-600">Retry count</p>
-                  <p className="mt-1 text-2xl font-bold text-care-ink">{call.retryCount}</p>
-                </div>
-              </Card>
-            ))
-          )}
-        </section>
-        <nav aria-label="History pages" className="flex items-center gap-4 text-sm font-semibold">
-          {page > 1 ? <Link href={`/dashboard/calls?page=${page - 1}`}>Newer results</Link> : null}
-          <span>Page {page}</span>
-          {rows.length > 25 ? <Link href={`/dashboard/calls?page=${page + 1}`}>Older results</Link> : null}
-        </nav>
       </div>
     );
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Could not load call logs.";
-
+  } catch {
     return (
       <div className="space-y-6">
         <PageHeader
-          eyebrow="Call history"
-          title="Medicine call logs"
-          description="Call outcomes will appear here after the call engine writes logs."
+          eyebrow="STAY IN THE LOOP"
+          title="Call history"
+          description="Every reminder and response, in one place."
         />
-        <Card>
-          <p className="text-base font-semibold text-care-ink">Call logs unavailable</p>
-          <p className="mt-2 text-sm leading-6 text-sage-700">{message}</p>
+        <Card className="space-y-4">
+          <h2 className="section-title">We couldn’t load your calls</h2>
+          <p className="text-sm leading-6 text-sage-700">
+            Please check your connection and try again. Your saved history will
+            be here when you return.
+          </p>
+          <RefreshPageButton />
         </Card>
       </div>
     );

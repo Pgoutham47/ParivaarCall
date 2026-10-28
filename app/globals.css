@@ -4,21 +4,22 @@
 
 :root {
   color-scheme: light;
-  background: #fffaf3;
+  background: #f7f8f5;
 }
 
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: 6rem;
 }
-
 body {
   min-height: 100vh;
-  background:
-    radial-gradient(circle at top left, rgba(219, 234, 247, 0.75), transparent 32rem),
-    linear-gradient(180deg, #fffaf3 0%, #f5f8f5 48%, #ffffff 100%);
-  color: #24322b;
+  background: #f7f8f5;
+  color: #20352b;
 }
-
+::selection {
+  background: #d7e8dc;
+  color: #20352b;
+}
 button,
 a,
 input,
@@ -26,7 +27,110 @@ select,
 textarea {
   -webkit-tap-highlight-color: transparent;
 }
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+input,
+select,
+textarea {
+  font-size: max(1rem, 16px);
+}
+summary {
+  list-style: none;
+}
+summary::-webkit-details-marker {
+  display: none;
+}
+.care-dialog::backdrop {
+  background: rgba(19, 36, 28, 0.4);
+  backdrop-filter: blur(4px);
+}
+.care-dialog[open] {
+  animation: dialog-in 160ms ease-out;
+}
 
-.focus-ring {
-  @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage-600;
+@layer components {
+  .card-padding {
+    @apply p-5 sm:p-6;
+  }
+  .focus-ring {
+    @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sage-600;
+  }
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.16em] text-sage-600;
+  }
+  .section-title {
+    @apply text-lg font-semibold tracking-tight text-care-ink;
+  }
+  .empty-state {
+    @apply flex flex-col items-center justify-center px-5 py-14 text-center;
+  }
+  .notice-error {
+    @apply rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-800;
+  }
+  .notice-success {
+    @apply rounded-xl border border-sage-200 bg-sage-50 px-4 py-3 text-sm leading-6 text-sage-800;
+  }
+  .surface-muted {
+    @apply rounded-xl bg-sage-50;
+  }
+  .section-wrap {
+    @apply mx-auto w-full max-w-[1200px] px-5 sm:px-8 lg:px-10;
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes gentle-wave {
+  0%,
+  100% {
+    transform: scaleY(0.5);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+.voice-wave span {
+  animation: gentle-wave 1.3s ease-in-out infinite;
+}
+.voice-wave span:nth-child(2n) {
+  animation-delay: -0.45s;
+}
+.voice-wave span:nth-child(3n) {
+  animation-delay: -0.8s;
+}
+.landing-faq[open] .faq-plus {
+  transform: rotate(45deg);
+}
+.skip-link {
+  position: fixed;
+  top: -100px;
+  left: 1rem;
+  z-index: 100;
+}
+.skip-link:focus {
+  top: 1rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

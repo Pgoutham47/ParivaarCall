@@ -5,26 +5,32 @@ import "./globals.css";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
-  display: "swap"
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "ParivaarCall",
-  description: "Medicine reminder calls for elderly parents, managed by their family.",
+  title: {
+    default: "ParivaarCall — A little reminder. A lot of love.",
+    template: "%s | ParivaarCall",
+  },
+  description:
+    "Medicine reminder calls for elderly parents, managed by their family.",
   icons: {
     icon: "/brand/parivaarcall-icon.png",
-    apple: "/brand/parivaarcall-icon.png"
-  }
+    apple: "/brand/parivaarcall-icon.png",
+  },
 };
 
 export default function RootLayout({
-  children
+  children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans antialiased`}>{children}</body>
+      <body className={`${inter.variable} font-sans antialiased`}>
+        {children}
+      </body>
     </html>
   );
 }

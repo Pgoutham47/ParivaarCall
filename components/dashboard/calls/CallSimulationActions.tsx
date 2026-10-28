@@ -2,16 +2,26 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { AlertTriangle, Check, CircleHelp, Clock3, PhoneOff } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  CircleHelp,
+  Clock3,
+  PhoneOff,
+} from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import type { SimulatedCallResponse } from "@/lib/types";
 
-const actions: Array<{ response: SimulatedCallResponse; label: string; icon: typeof Check }> = [
+const actions: Array<{
+  response: SimulatedCallResponse;
+  label: string;
+  icon: typeof Check;
+}> = [
   { response: "confirmed", label: "Simulate Confirmed", icon: Check },
   { response: "snoozed", label: "Simulate Snoozed", icon: Clock3 },
   { response: "no_answer", label: "Simulate No Answer", icon: PhoneOff },
   { response: "missed", label: "Simulate Missed", icon: AlertTriangle },
-  { response: "need_help", label: "Simulate Need Help", icon: CircleHelp }
+  { response: "need_help", label: "Simulate Need Help", icon: CircleHelp },
 ];
 
 export function CallSimulationActions({ callLogId }: { callLogId: string }) {
@@ -23,26 +33,34 @@ export function CallSimulationActions({ callLogId }: { callLogId: string }) {
     setLoading(simulatedResponse);
     setError(null);
 
-    const response = await fetch("/api/calls/process-one", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ callLogId, simulatedResponse })
-    });
-    const payload = (await response.json().catch(() => ({}))) as { error?: string };
-
-    if (!response.ok) {
+    try {
+      const response = await fetch("/api/calls/process-one", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ callLogId, simulatedResponse }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
+      if (!response.ok) throw new Error(payload.error ?? "Simulation failed.");
+      router.refresh();
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Check your connection and try again.",
+      );
+    } finally {
       setLoading(null);
-      setError(payload.error ?? "Simulation failed.");
-      return;
     }
-
-    setLoading(null);
-    router.refresh();
   }
 
   return (
-    <div className="mt-4 border-t border-sage-100 pt-4">
-      <div className="flex flex-wrap gap-2">
+    <details className="mt-4 border-t border-sage-100 pt-4">
+      <summary className="focus-ring cursor-pointer rounded text-xs text-sage-500">
+        Development: simulate an outcome
+      </summary>
+      <div className="mt-3 flex flex-wrap gap-2">
         {actions.map((action) => {
           const Icon = action.icon;
           return (
@@ -60,7 +78,11 @@ export function CallSimulationActions({ callLogId }: { callLogId: string }) {
           );
         })}
       </div>
-      {error ? <p className="mt-2 text-sm font-semibold text-rose-700">{error}</p> : null}
-    </div>
+      {error ? (
+        <p role="alert" className="mt-2 text-sm font-semibold text-rose-700">
+          {error}
+        </p>
+      ) : null}
+    </details>
   );
 }

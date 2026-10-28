@@ -1,19 +1,16 @@
 import { cn, formatEnum } from "@/lib/utils";
-
 type Tone = "green" | "amber" | "red" | "blue" | "neutral";
-
 const toneClasses: Record<Tone, string> = {
-  green: "bg-emerald-50 text-emerald-700 ring-emerald-100",
-  amber: "bg-amber-50 text-amber-800 ring-amber-100",
-  red: "bg-rose-50 text-rose-700 ring-rose-100",
-  blue: "bg-sky-50 text-sky-700 ring-sky-100",
-  neutral: "bg-sage-50 text-sage-700 ring-sage-100"
+  green: "bg-sage-50 text-sage-800",
+  amber: "bg-amber-50 text-amber-800",
+  red: "bg-rose-50 text-rose-800",
+  blue: "bg-sky-50 text-sky-800",
+  neutral: "bg-[#f0f2ee] text-sage-700",
 };
-
 export function StatusBadge({
   label,
   tone = "neutral",
-  className
+  className,
 }: {
   label: string;
   tone?: Tone;
@@ -22,11 +19,15 @@ export function StatusBadge({
   return (
     <span
       className={cn(
-        "inline-flex w-fit items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1",
+        "inline-flex w-fit items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium leading-4",
         toneClasses[tone],
-        className
+        className,
       )}
     >
+      <span
+        aria-hidden="true"
+        className="size-1.5 shrink-0 rounded-full bg-current opacity-70"
+      />
       {formatEnum(label)}
     </span>
   );
