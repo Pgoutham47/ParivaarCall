@@ -91,17 +91,26 @@ function parentSpeech(transcript: string): string | null {
 const HELP_KEYWORDS = [
   "sahayam", "bagoledu", "bagaledu", "noppi", "kallu tirugu", "ayipoyayi", "hospital",
   "help", "not feeling well", "not well", "pain", "dizzy", "chest", "fell down", "cannot breathe", "emergency",
-  "సహాయం", "బాగోలేదు", "నొప్పి", "అయిపోయాయి"
+  "సహాయం", "బాగోలేదు", "నొప్పి", "అయిపోయాయి",
+  "मदद चाहिए", "तबीयत खराब", "दर्द हो रहा", "सांस नहीं", "दवा खत्म",
+  "உதவி வேண்டும்", "உடம்பு சரியில்லை", "வலிக்கிறது", "மூச்சு விட முடியவில்லை",
+  "ಸಹಾಯ ಬೇಕು", "ಹುಷಾರಿಲ್ಲ", "ನೋವಾಗುತ್ತಿದೆ", "ಉಸಿರಾಡಲು ಆಗುತ್ತಿಲ್ಲ"
 ];
 const TAKEN_KEYWORDS = [
   "vesukunna", "vesukunnanu", "teesukunna", "theesukunna", "thisukunna", "ayipoyindi",
   "took it", "i took", "have taken", "already taken",
-  "వేసుకున్నా", "తీసుకున్నా", "అయిపోయింది"
+  "వేసుకున్నా", "తీసుకున్నా", "అయిపోయింది",
+  "दवा ले ली", "दवाई ले ली", "दवा खा ली", "गोली ले ली",
+  "மருந்து எடுத்துக்கொண்டேன்", "மாத்திரை எடுத்துக்கொண்டேன்",
+  "ಔಷಧಿ ತೆಗೆದುಕೊಂಡಿದ್ದೇನೆ", "ಮಾತ್ರೆ ತೆಗೆದುಕೊಂಡಿದ್ದೇನೆ"
 ];
 const LATER_KEYWORDS = [
   "tarvatha", "tharvatha", "kasepagi", "kasepati", "ippudu kadu", "malli cheppandi",
   "later", "not now", "in some time", "remind me",
-  "తర్వాత", "కాసేపాగి", "ఇప్పుడు కాదు"
+  "తర్వాత", "కాసేపాగి", "ఇప్పుడు కాదు",
+  "बाद में", "फिर याद दिला", "अभी नहीं",
+  "பிறகு", "பின்னர்", "அப்புறம்", "இப்போது வேண்டாம்",
+  "ಆಮೇಲೆ", "ನಂತರ", "ಈಗ ಬೇಡ"
 ];
 
 // Fallback for when Bolna's extraction is unavailable or returns nothing.
@@ -130,7 +139,7 @@ function classifyFromTranscript(transcript: string | null | undefined): string |
 
   // A bare "yes" may answer a greeting, and negated statements must never
   // produce an adherence confirmation when extraction is unavailable.
-  if (/\b(not|never|haven['’]?t|didn['’]?t|don['’]?t)\b/.test(speech) || /వేసుకోలేదు|తీసుకోలేదు/.test(speech)) {
+  if (/\b(not|never|haven['’]?t|didn['’]?t|don['’]?t)\b/.test(speech) || /వేసుకోలేదు|తీసుకోలేదు|లేదు|नहीं|नही|मत|இல்லை|வில்லை|ಬೇಡ|ಇಲ್ಲ|ತೆಗೆದುಕೊಂಡಿಲ್ಲ/.test(speech)) {
     return null;
   }
 

@@ -5,6 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { canCallNumber } from "@/lib/calling-access";
 import { processPendingCall } from "@/lib/services/call-engine";
 import { callDescription } from "@/lib/call-display";
+import { getOrCreateVoiceSettings } from "@/lib/services/settings";
+import { resolveCallLanguage, testCallScripts } from "@/lib/voice-languages";
 
 export async function POST(request: NextRequest) {
   const auth = await authenticatedUser(request);
@@ -23,8 +25,9 @@ export async function POST(request: NextRequest) {
   // when two server instances receive simultaneous requests.
   const hash = createHash("sha256").update(`test:${auth.user.id}:${Math.floor(Date.now() / 300000)}`).digest("hex");
   const id = `${hash.slice(0,8)}-${hash.slice(8,12)}-4${hash.slice(13,16)}-a${hash.slice(17,20)}-${hash.slice(20,32)}`;
-  const telugu = parent.language === "Telugu";
-  const { error: insertError } = await admin.from("call_logs").insert({ id, caregiver_id: auth.user.id, parent_id: parent.id, scheduled_for: new Date(Date.now() + 60000).toISOString(), call_status: "pending", retry_count: 0, script_language: telugu ? "Telugu" : "English", script_text: telugu ? "నమస్కారం! ఇది పరివార్ కాల్ పరీక్ష కాల్. నిజంగా మందు తీసుకోవాల్సిన అవసరం లేదు. పరీక్ష కోసం, మందు వేసుకున్నాను అని చెప్పండి." : "Hello! This is a ParivaarCall test call. You do not need to take any medicine. To test confirmation, please say: I have taken it.", notes: "One-time test call. No medicine action is needed." });
+  const settings = await getOrCreateVoiceSettings(auth.supabase);
+  const language = resolveCallLanguage(settings.languagePreference, parent.language);
+  const { error: insertError } = await admin.from("call_logs").insert({ id, caregiver_id: auth.user.id, parent_id: parent.id, scheduled_for: new Date(Date.now() + 60000).toISOString(), call_status: "pending", retry_count: 0, script_language: language, script_text: testCallScripts[language], notes: "One-time test call. No medicine action is needed." });
   if (insertError) return NextResponse.json({ error: insertError.code === "23505" ? "A test call was already requested. Check Calls before trying again." : "Could not request the test call." }, { status: insertError.code === "23505" ? 429 : 503 });
   try {
     const result = await processPendingCall(admin, id);

@@ -1,5 +1,6 @@
 import type { CallJob, CallPlacement, CallProvider } from "@/lib/types";
 import { normalizePhoneNumber } from "@/lib/phone";
+import { callLanguageCodes, resolveCallLanguage } from "@/lib/voice-languages";
 
 const DEFAULT_BOLNA_API_URL = "https://api.bolna.ai";
 
@@ -28,6 +29,7 @@ export function createBolnaCallProvider(): CallProvider {
       const apiUrl = process.env.BOLNA_API_URL ?? DEFAULT_BOLNA_API_URL;
       // Optional owned number; omit to use Bolna's default calling line.
       const fromPhoneNumber = process.env.BOLNA_FROM_PHONE_NUMBER;
+      const language = resolveCallLanguage(job.script.language ?? "", "");
 
       const response = await fetch(`${apiUrl}/call`, {
         method: "POST",
@@ -38,6 +40,9 @@ export function createBolnaCallProvider(): CallProvider {
         },
         body: JSON.stringify({
           agent_id: agentId,
+          agent_data: { language: callLanguageCodes[language] },
+          // The application owns retries and checks paused/expired schedules.
+          retry_config: { enabled: false },
           recipient_phone_number: normalizePhoneNumber(job.parent.phone),
           ...(fromPhoneNumber ? { from_phone_number: normalizePhoneNumber(fromPhoneNumber) } : {}),
           user_data: {
@@ -46,9 +51,13 @@ export function createBolnaCallProvider(): CallProvider {
             medicine_name: job.medicineSchedule?.medicine_name ?? "medicine",
             dosage_instruction: job.medicineSchedule?.dosage_instruction ?? "",
             scheduled_time: job.medicineSchedule?.scheduled_time ?? "",
-            script_language: job.script.language ?? "English",
+            script_language: language,
             reminder_script: job.script.text ?? "",
-            retry_count: job.callLog.retry_count
+            retry_count: job.callLog.retry_count,
+            respect_mode: job.voiceSettings.respectMode,
+            retry_delay_minutes: job.voiceSettings.retryDelayMinutes,
+            retries_remaining: job.voiceSettings.retriesRemaining,
+            call_kind: job.medicineSchedule ? "medicine_reminder" : "test"
           }
         })
       });

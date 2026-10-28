@@ -101,10 +101,7 @@ export const languageTemplates: Record<SupportedCallLanguage, LanguageTemplate> 
       ["tablet", "టాబ్లెట్"],
       ["one", "ఒక"],
       ["two", "రెండు"],
-      ["three", "మూడు"],
-      ["1", "ఒక"],
-      ["2", "రెండు"],
-      ["3", "మూడు"]
+      ["three", "మూడు"]
     ]
   },
   Hindi: {
@@ -120,7 +117,7 @@ export const languageTemplates: Record<SupportedCallLanguage, LanguageTemplate> 
       before_food: "खाने से पहले",
       after_food: "खाने के बाद"
     },
-    retryPrefix: "मैं दोबारा फ़ोन कर रहा हूँ। ",
+    retryPrefix: "यह दोबारा याद दिलाने के लिए कॉल है। ",
     opening: (address) => `नमस्ते ${address}, आप कैसे हैं?`,
     medicineLine: (medicineInstruction) => `आपकी ${medicineInstruction} लेने का समय हो गया है।`,
     closingQuestion: "आपने ले ली?",
@@ -142,10 +139,7 @@ export const languageTemplates: Record<SupportedCallLanguage, LanguageTemplate> 
       ["tablet", "गोली"],
       ["one", "एक"],
       ["two", "दो"],
-      ["three", "तीन"],
-      ["1", "एक"],
-      ["2", "दो"],
-      ["3", "तीन"]
+      ["three", "तीन"]
     ]
   },
   Tamil: {
@@ -183,10 +177,7 @@ export const languageTemplates: Record<SupportedCallLanguage, LanguageTemplate> 
       ["tablet", "மாத்திரை"],
       ["one", "ஒரு"],
       ["two", "இரண்டு"],
-      ["three", "மூன்று"],
-      ["1", "ஒரு"],
-      ["2", "இரண்டு"],
-      ["3", "மூன்று"]
+      ["three", "மூன்று"]
     ]
   },
   Kannada: {
@@ -224,10 +215,7 @@ export const languageTemplates: Record<SupportedCallLanguage, LanguageTemplate> 
       ["tablet", "ಮಾತ್ರೆ"],
       ["one", "ಒಂದು"],
       ["two", "ಎರಡು"],
-      ["three", "ಮೂರು"],
-      ["1", "ಒಂದು"],
-      ["2", "ಎರಡು"],
-      ["3", "ಮೂರು"]
+      ["three", "ಮೂರು"]
     ]
   }
 };

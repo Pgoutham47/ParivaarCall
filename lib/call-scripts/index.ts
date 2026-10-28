@@ -6,6 +6,7 @@ import type {
   SupportedCallLanguage
 } from "@/lib/types";
 import { languageTemplates, supportedCallLanguages, type LanguageTemplate } from "@/lib/call-scripts/templates";
+import { reminderOpening } from "@/lib/voice-languages";
 
 function normalizeLanguage(language: string | null | undefined): SupportedCallLanguage {
   const normalized = supportedCallLanguages.find((candidate) => candidate.toLowerCase() === language?.trim().toLowerCase());
@@ -108,8 +109,9 @@ export function generateMedicineReminderScript(input: MedicineReminderScriptInpu
     template.language
   );
   const retryPrefix = input.retryCount > 0 ? template.retryPrefix : "";
+  const opening = reminderOpening(template.language, input.parentName, address, input.respectMode);
   const scriptText = [
-    `${retryPrefix}${template.opening(address)}`,
+    `${retryPrefix}${opening}`,
     template.medicineLine(medicineInstruction),
     template.closingQuestion
   ].join(" ");
@@ -117,7 +119,7 @@ export function generateMedicineReminderScript(input: MedicineReminderScriptInpu
   return {
     language: template.language,
     scriptText,
-    shortPreviewText: `${template.opening(address)} ${template.medicineLine(medicineInstruction)}`,
+    shortPreviewText: `${opening} ${template.medicineLine(medicineInstruction)}`,
     safetyNote: template.safetyNote
   };
 }

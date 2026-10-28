@@ -48,11 +48,18 @@ export async function getOrCreateVoiceSettings(supabase: SupabaseClient<Database
 
   const { data: created, error: createError } = await supabase
     .from("voice_settings")
-    .insert({ caregiver_id: caregiverId })
+    .insert({ caregiver_id: caregiverId, preferred_language: "Parent preferred language" })
     .select("*")
     .single();
 
   if (createError) {
+    // Two tabs or simultaneous test-call requests can initialize settings at
+    // once. Reuse the winning row without overwriting its saved preferences.
+    if (createError.code === "23505") {
+      const { data: existing, error: readError } = await supabase.from("voice_settings").select("*").eq("caregiver_id", caregiverId).single();
+      if (readError) throw new Error(readError.message);
+      return mapSettings(existing);
+    }
     throw new Error(createError.message);
   }
 

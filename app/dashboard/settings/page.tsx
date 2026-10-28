@@ -14,7 +14,7 @@ export default async function SettingsPage() {
         <PageHeader
           eyebrow="Preferences"
           title="Settings"
-          description="Shape how future calls sound, retry, and notify the family."
+          description="Choose call language, speaking style, and reminder retries."
         />
         <SettingsManager initialSettings={settings} />
       </div>
@@ -27,7 +27,7 @@ export default async function SettingsPage() {
         <PageHeader
           eyebrow="Preferences"
           title="Settings"
-          description="Shape how future calls sound, retry, and notify the family."
+          description="Choose call language, speaking style, and reminder retries."
         />
         <SettingsManager initialSettings={null} initialError={message} />
       </div>

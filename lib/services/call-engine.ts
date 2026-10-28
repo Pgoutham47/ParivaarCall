@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { scheduleIsDue } from "@/lib/schedule-rules";
 import { canCallNumber } from "@/lib/calling-access";
+import { resolveCallLanguage, testCallScripts } from "@/lib/voice-languages";
 import { getCallProvider } from "@/lib/call-providers";
 import { generateMedicineReminderScript, getLanguageTemplate } from "@/lib/call-scripts";
 import { sendAlertEmail } from "@/lib/services/notifications";
@@ -81,8 +82,7 @@ function buildScriptPayload(input: {
   settings: Pick<VoiceSettingsRow, "preferred_language" | "respect_mode">;
   retryCount: number;
 }) {
-  const language =
-    input.settings.preferred_language === "Parent preferred language" ? input.parent.language : input.settings.preferred_language;
+  const language = resolveCallLanguage(input.settings.preferred_language, input.parent.language);
   const script = generateMedicineReminderScript({
     parentName: input.parent.name,
     relationship: input.parent.relationship,
@@ -136,12 +136,17 @@ async function createRetryCallLog(
   }
 }
 
-function toCallJob(row: CallLogWithRelations): CallJob {
+function toCallJob(row: CallLogWithRelations, settings: Awaited<ReturnType<typeof getVoiceSettings>>): CallJob {
   if (!row.parents) {
     throw new Error("Call log is missing parent details.");
   }
 
   return {
+    voiceSettings: {
+      respectMode: settings.respect_mode === "casual" ? "casual" : "formal",
+      retryDelayMinutes: settings.retry_delay_minutes,
+      retriesRemaining: row.medicine_schedule_id ? Math.max(0, settings.max_retries - row.retry_count) : 0
+    },
     callLog: {
       id: row.id,
       caregiver_id: row.caregiver_id,
@@ -584,7 +589,21 @@ export async function processPendingCall(
   let placement: CallPlacement;
 
   try {
-    placement = await getCallProvider().placeCall(toCallJob(latest), options);
+    // Queues may have been generated hours before a preference was changed.
+    // Resolve settings immediately before dialing and save the actual script.
+    const settings = await getVoiceSettings(supabase, latest.caregiver_id);
+    if (latest.retry_count > settings.max_retries) {
+      const stopped = await finalizeCallResult(supabase, callLogId, { status: "failed", responseType: "no_response", notes: "Reminder cancelled: retry limit was reduced in settings." }, { onlyIfStatusIn: ["calling"] });
+      return stopped ? { ...stopped, providerCallId: undefined } : null;
+    }
+    const language = resolveCallLanguage(settings.preferred_language, parent!.language);
+    const script = schedule
+      ? buildScriptPayload({ parent: parent!, schedule, settings, retryCount: latest.retry_count })
+      : { script_text: testCallScripts[language], script_language: language, audio_status: "not_generated" };
+    const { error: scriptError } = await supabase.from("call_logs").update(script).eq("id", callLogId).eq("call_status", "calling");
+    if (scriptError) throw new Error(scriptError.message);
+    Object.assign(latest, script);
+    placement = await getCallProvider().placeCall(toCallJob(latest, settings), options);
   } catch (error) {
     // A timeout/network error can occur after the remote service accepted the
     // call. Keep the claim for its callback/reconciliation; never dial it again.

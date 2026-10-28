@@ -19,7 +19,7 @@ export function SettingsManager({
   initialError?: string;
 }) {
   const [settings, setSettings] = useState<VoiceSettingsInput>(() => ({
-    languagePreference: initialSettings?.languagePreference ?? "Telugu",
+    languagePreference: initialSettings?.languagePreference ?? "Parent preferred language",
     respectMode: initialSettings?.respectMode ?? "formal",
     retryAttempts: initialSettings?.retryAttempts ?? 2,
     retryGapMinutes: initialSettings?.retryGapMinutes ?? 10
@@ -46,7 +46,7 @@ export function SettingsManager({
         retryAttempts: savedSettings.retryAttempts,
         retryGapMinutes: savedSettings.retryGapMinutes
       });
-      setSavedMessage("Settings saved.");
+      setSavedMessage("Settings saved. Language and speaking style apply to the next call, including queued reminders. Calls already in progress keep their current settings.");
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Could not save settings.");
     } finally {
@@ -75,8 +75,7 @@ export function SettingsManager({
                 {selectableCallLanguages.map((language) => (
                   <option key={language}>{language}</option>
                 ))}
-                {/* A setting saved before the list narrowed stays visible, so
-                    opening this page cannot silently change the call language. */}
+                {/* Keep old values visible so opening settings never silently changes them. */}
                 {settings.languagePreference !== PARENT_PREFERRED &&
                 !selectableCallLanguages.includes(settings.languagePreference as never) ? (
                   <option>{settings.languagePreference}</option>
@@ -89,12 +88,12 @@ export function SettingsManager({
                 onChange={(event) => updateField("respectMode", event.target.value as RespectMode)}
               >
                 <option value="formal">Formal</option>
-                <option value="casual">Casual</option>
+                <option value="casual">Warm and familiar</option>
               </SelectInput>
             </Field>
           </div>
           <p className="mt-4 text-sm leading-6 text-sage-700">
-            The language decides which script is written and which language the voice agent speaks. Respect mode changes how the parent is addressed. Calls use a preset, clear speaking voice.
+            Choose one language for all calls, or use each parent’s preferred language. Formal uses their name and a polite greeting; warm and familiar uses their family relationship. The parent can ask to switch between Telugu, English, Hindi, Tamil, and Kannada during a call.
           </p>
         </Card>
 
@@ -123,6 +122,9 @@ export function SettingsManager({
               />
             </Field>
           </div>
+          <p className="mt-4 text-sm leading-6 text-sage-700">
+            Retries apply when a parent asks for a reminder later or does not answer. Set attempts to 0 to turn retries off. The gap applies to newly scheduled retries; retries stop at the end of the reminder day. One-time test calls never retry.
+          </p>
         </Card>
       </section>
 

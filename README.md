@@ -351,3 +351,9 @@ Validation: `npm run lint`, `npm test`, and `npm run build`. `scripts/check-prod
 Remaining operational limits: free-tier capacity/uptime, operator-managed number verification, and dashboard-only caregiver alerts. Hourly availability/worker checks and daily encrypted off-site backups with isolated data-restore verification are active in GitHub Actions. Backups are retained for 30 days. See `docs/operations.txt` for recovery instructions and key storage. A full infrastructure failover and sustained load test have not been performed; paid capacity remains a deployment decision before general availability. Successful tests are evidence of the checked paths, not a guarantee of perfect reliability.
 
 Operations migration: `supabase/migrations/008_operations.sql` is applied in production. Its health and recovery RPCs are restricted to the server role. Both anonymous and ordinary authenticated access were tested and rejected.
+
+## Multilingual voice configuration
+
+The live agent and dashboard support Telugu, English, Hindi, Tamil and Kannada. Language and respect mode are applied immediately before dialing, including queued reminders and one-time tests. Each language has speech recognition, voice synthesis, a prompt, silence checks and a goodbye. Conversation-based hangup is enabled with an interruptible farewell.
+
+The reviewed configuration is in `config/bolna-conversation.json`; see [agent configuration and verification](docs/bolna-agent-prompt.md). Run `node --env-file=.env.local scripts/configure-voice-agent.mjs` for a read-only audit. Configuration checks and simulations do not certify native-speaker pronunciation or real telephone interruption/hangup timing.
