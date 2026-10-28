@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { authenticatedUser, validId } from "@/lib/services/user-api";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { canCallNumber } from "@/lib/calling-access";
+import { DEMO_CALLING_DISABLED_MESSAGE, isPresentationDemo } from "@/lib/demo-account";
 import { processPendingCall } from "@/lib/services/call-engine";
 import { callDescription } from "@/lib/call-display";
 import { getOrCreateVoiceSettings } from "@/lib/services/settings";
@@ -11,6 +12,7 @@ import { resolveCallLanguage, testCallScripts } from "@/lib/voice-languages";
 export async function POST(request: NextRequest) {
   const auth = await authenticatedUser(request);
   if (!auth) return NextResponse.json({ error: "Please sign in to continue." }, { status: 401 });
+  if (isPresentationDemo(auth.user.id)) return NextResponse.json({ error: DEMO_CALLING_DISABLED_MESSAGE }, { status: 403 });
   const body = await request.json().catch(() => null);
   if (!validId(body?.parentId)) return NextResponse.json({ error: "Choose a parent." }, { status: 400 });
   const { data: parent, error } = await auth.supabase.from("parents").select("*").eq("id", body.parentId).maybeSingle();

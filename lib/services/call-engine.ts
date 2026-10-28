@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { scheduleIsDue } from "@/lib/schedule-rules";
 import { canCallNumber } from "@/lib/calling-access";
+import { DEMO_ACCOUNT_ID, isPresentationDemo } from "@/lib/demo-account";
 import { resolveCallLanguage, testCallScripts } from "@/lib/voice-languages";
 import { getCallProvider } from "@/lib/call-providers";
 import { generateMedicineReminderScript, getLanguageTemplate } from "@/lib/call-scripts";
@@ -107,6 +108,7 @@ async function createRetryCallLog(
   callLog: CallLogWithRelations,
   settings: Pick<VoiceSettingsRow, "retry_delay_minutes" | "preferred_language" | "respect_mode">
 ) {
+  if (isPresentationDemo(callLog.caregiver_id)) return;
   if (!callLog.parents || !callLog.medicine_schedules) {
     throw new Error("Retry call log is missing script details.");
   }
@@ -205,7 +207,7 @@ async function createCallLogForSchedule(
   settings: Awaited<ReturnType<typeof getVoiceSettings>>,
   options?: { skipPastTimes?: boolean }
 ): Promise<CallLogCreateOutcome> {
-  if (!isScheduleActiveToday(schedule, dateKey) || schedule.parents?.status !== "active") {
+  if (isPresentationDemo(schedule.caregiver_id) || !isScheduleActiveToday(schedule, dateKey) || schedule.parents?.status !== "active") {
     return "ineligible";
   }
 
@@ -289,7 +291,7 @@ export async function generateCallLogForSchedule(supabase: Client, scheduleId: s
 
   const schedule = data as ScheduleWithParent;
 
-  if (!schedule.is_active) {
+  if (isPresentationDemo(schedule.caregiver_id) || !schedule.is_active) {
     return { outcome: "ineligible" as CallLogCreateOutcome };
   }
 
@@ -304,6 +306,7 @@ export async function generateTodayCallLogs(supabase: Client) {
   const { data, error } = await supabase
     .from("medicine_schedules")
     .select("*, parents!inner(status, name, relationship, language)")
+    .neq("caregiver_id", DEMO_ACCOUNT_ID)
     .eq("is_active", true);
 
   if (error) {
@@ -356,6 +359,7 @@ export async function getPendingCalls(supabase: Client) {
   const { data, error } = await supabase
     .from("call_logs")
     .select("*, parents(id, name, phone, relationship, language, caregiver_id, status, updated_at), medicine_schedules(id, medicine_name, dosage_instruction, scheduled_time, food_timing, caregiver_id, parent_id, is_active, start_date, end_date, frequency, updated_at)")
+    .neq("caregiver_id", DEMO_ACCOUNT_ID)
     .eq("call_status", "pending")
     .lte("scheduled_for", new Date().toISOString())
     .order("scheduled_for", { ascending: true })
@@ -386,7 +390,8 @@ export async function updateCallResult(
       call_ended_at: new Date().toISOString(),
       notes: result.notes ?? null
     })
-    .eq("id", callLogId);
+    .eq("id", callLogId)
+    .neq("caregiver_id", DEMO_ACCOUNT_ID);
 
   if (options?.onlyIfStatusIn) {
     query = query.in("call_status", options.onlyIfStatusIn);
@@ -402,6 +407,7 @@ export async function updateCallResult(
 }
 
 export async function createAlertFromCallResult(supabase: Client, callLog: CallLogWithRelations) {
+  if (isPresentationDemo(callLog.caregiver_id)) return null;
   const parentName = callLog.parents?.name ?? "Parent";
   const medicineName = callLog.medicine_schedules?.medicine_name ?? "medicine";
 
@@ -501,7 +507,7 @@ export async function finalizeCallResult(
 
   const schedule = updatedWithRelations.medicine_schedules;
   const retryDay = localDateKey(new Date(Date.now() + settings.retry_delay_minutes * 60000));
-  const canRetry = schedule && scheduleIsDue(schedule, retryDay) && updatedWithRelations.parents?.status === "active" && retryDay === localDateKey(new Date(updated.scheduled_for ?? updated.created_at));
+  const canRetry = !isPresentationDemo(updated.caregiver_id) && schedule && scheduleIsDue(schedule, retryDay) && updatedWithRelations.parents?.status === "active" && retryDay === localDateKey(new Date(updated.scheduled_for ?? updated.created_at));
   if (canRetry && (result.status === "snoozed" || result.status === "no_answer") && updated.retry_count < settings.max_retries) {
     await createRetryCallLog(supabase, updatedWithRelations, settings);
     retryCreated = true;
@@ -526,6 +532,7 @@ export async function getStuckCallingLogs(supabase: Client, olderThanMinutes: nu
   const { data, error } = await supabase
     .from("call_logs")
     .select("*, parents(id, name, phone, relationship, language, caregiver_id, status, updated_at), medicine_schedules(id, medicine_name, dosage_instruction, scheduled_time, food_timing, caregiver_id, parent_id, is_active, start_date, end_date, frequency, updated_at)")
+    .neq("caregiver_id", DEMO_ACCOUNT_ID)
     .eq("call_status", "calling")
     .lt("call_started_at", cutoff)
     .order("call_started_at", { ascending: true })
@@ -543,6 +550,7 @@ export async function findCallLogByProviderCallId(supabase: Client, providerCall
     .from("call_logs")
     .select("*, parents(id, name, phone, relationship, language, caregiver_id, status, updated_at), medicine_schedules(id, medicine_name, dosage_instruction, scheduled_time, food_timing, caregiver_id, parent_id, is_active, start_date, end_date, frequency, updated_at)")
     .eq("provider_call_id", providerCallId)
+    .neq("caregiver_id", DEMO_ACCOUNT_ID)
     .maybeSingle();
 
   if (error) {
@@ -557,6 +565,16 @@ export async function processPendingCall(
   callLogId: string,
   options?: { simulatedResponse?: SimulatedCallResponse }
 ) {
+  // A direct processing request must not even claim a presentation row.
+  // The worker query excludes it too; this guard covers other entry points.
+  const { data: target, error: targetError } = await supabase
+    .from("call_logs")
+    .select("caregiver_id")
+    .eq("id", callLogId)
+    .maybeSingle();
+  if (targetError) throw new Error(targetError.message);
+  if (isPresentationDemo(target?.caregiver_id)) return null;
+
   // Claim the row: only a transition from pending can proceed, so overlapping
   // cron runs or a re-sent process-one request cannot dial the parent twice.
   const { data: claimed, error: callingError } = await supabase.rpc("claim_pending_call", { p_id: callLogId });

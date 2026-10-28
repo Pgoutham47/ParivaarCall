@@ -125,6 +125,21 @@ Real-call listening checks require an authorized recipient. Load testing and
 full infrastructure failover remain deferred. Neither passing automated tests
 nor saved agent settings guarantees perfect speech or uninterrupted service.
 
+## Presentation demo
+
+The shared presentation account is marked by `lib/demo-account.ts`. Its active
+sample schedules are visible for exploration, but generation, real/test calling,
+retries, and notifications are disabled independently of the calling plan.
+The dashboard labels all activity as fictional. Sample history has final outcomes
+only, with no provider IDs, recordings, or queued calls.
+
+Preview the initial dataset with
+`node --env-file=.env.local --import tsx scripts/seed-presentation-demo.mjs`.
+After deploying the guards, add `--apply` to populate the empty demo account.
+The script verifies the deployed call block, checks the exact account identity,
+backs up existing settings, and refuses to overwrite visitor activity.
+Credentials stay in the ignored private backup folder, never in source control.
+
 ## Archived creative work
 
 Historical posters, reels, branding explorations, market research, and the old

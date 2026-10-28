@@ -10,16 +10,20 @@ import type { Parent } from "@/lib/types";
 export function TestCallButton({
   parent,
   disabled = false,
+  presentationDemo = false,
 }: {
   parent: Parent;
   disabled?: boolean;
+  presentationDemo?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const router = useRouter();
   const available =
-    Boolean(parent.callingVerified) && parent.status === "active";
+    !presentationDemo &&
+    Boolean(parent.callingVerified) &&
+    parent.status === "active";
 
   async function call() {
     if (busy || disabled || !available) return;
@@ -59,11 +63,13 @@ export function TestCallButton({
         variant="secondary"
         disabled={busy || disabled || !available}
         title={
-          !available
-            ? parent.status !== "active"
-              ? "Resume this family member’s calls first"
-              : "Verify this number before making a test call"
-            : undefined
+          presentationDemo
+            ? "Live and test calls are disabled for this presentation account"
+            : !available
+              ? parent.status !== "active"
+                ? "Resume this family member’s calls first"
+                : "Verify this number before making a test call"
+              : undefined
         }
         icon={<Phone className="h-3.5 w-3.5" aria-hidden="true" />}
         onClick={() => {
@@ -71,10 +77,10 @@ export function TestCallButton({
           setOpen(true);
         }}
       >
-        Test a call
+        {presentationDemo ? "Calls disabled in demo" : "Test a call"}
       </Button>
       <Dialog
-        open={open}
+        open={open && !presentationDemo}
         dismissible={!busy}
         onClose={() => {
           if (!busy) setOpen(false);

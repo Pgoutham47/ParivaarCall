@@ -1,4 +1,5 @@
 import { canCallNumber } from "@/lib/calling-access";
+import { isPresentationDemo } from "@/lib/demo-account";
 import { ParentsManager } from "@/components/dashboard/ParentsManager";
 import { listParents } from "@/lib/services/parents";
 import { createClient } from "@/lib/supabase/server";
@@ -12,7 +13,10 @@ export default async function ParentsPage({
   const supabase = await createClient();
 
   try {
-    const parents = await listParents(supabase);
+    const [
+      parents,
+      { data: { user } },
+    ] = await Promise.all([listParents(supabase), supabase.auth.getUser()]);
     return (
       <ParentsManager
         initialParents={parents.map((parent) => ({
@@ -23,6 +27,7 @@ export default async function ParentsPage({
           ),
         }))}
         initialAdd={add === "1"}
+        presentationDemo={isPresentationDemo(user?.id)}
       />
     );
   } catch {

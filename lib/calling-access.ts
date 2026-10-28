@@ -1,4 +1,5 @@
 import { normalizePhoneNumber } from "@/lib/phone";
+import { isPresentationDemo } from "@/lib/demo-account";
 
 export function freeTierCalling() {
   return process.env.FREE_TIER_CALLING !== "false";
@@ -7,6 +8,7 @@ export function freeTierCalling() {
 // Live verification is scoped to the caregiver account. Knowing another
 // family's verified phone number must not grant permission to call it.
 export function canCallNumber(phone: string, caregiverId?: string) {
+  if (isPresentationDemo(caregiverId)) return false;
   if (!freeTierCalling()) return true;
   try {
     const normalized = normalizePhoneNumber(phone);

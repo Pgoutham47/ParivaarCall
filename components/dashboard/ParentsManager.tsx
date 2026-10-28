@@ -29,10 +29,12 @@ export function ParentsManager({
   initialParents,
   initialError,
   initialAdd = false,
+  presentationDemo = false,
 }: {
   initialParents: Parent[];
   initialError?: string;
   initialAdd?: boolean;
+  presentationDemo?: boolean;
 }) {
   const router = useRouter();
   const handledAdd = useRef(initialAdd);
@@ -278,8 +280,18 @@ export function ParentsManager({
                       </div>
                     </div>
                     <StatusBadge
-                      label={parent.status === "active" ? "Active" : "Paused"}
-                      tone={parent.status === "active" ? "green" : "neutral"}
+                      label={
+                        presentationDemo
+                          ? "Sample profile"
+                          : parent.status === "active"
+                            ? "Active"
+                            : "Paused"
+                      }
+                      tone={
+                        !presentationDemo && parent.status === "active"
+                          ? "green"
+                          : "neutral"
+                      }
                     />
                   </div>
                   <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -291,14 +303,16 @@ export function ParentsManager({
                         {parent.phoneNumber}
                       </p>
                       <p
-                        className={`mt-1.5 flex items-center gap-1 text-xs ${parent.callingVerified ? "text-sage-700" : "text-amber-800"}`}
+                        className={`mt-1.5 flex items-center gap-1 text-xs ${presentationDemo || parent.callingVerified ? "text-sage-700" : "text-amber-800"}`}
                       >
-                        {parent.callingVerified ? (
+                        {!presentationDemo && parent.callingVerified ? (
                           <Check className="h-3.5 w-3.5" aria-hidden="true" />
                         ) : null}
-                        {parent.callingVerified
-                          ? "Verified for calls"
-                          : "Number verification needed"}
+                        {presentationDemo
+                          ? "Calls disabled in demo"
+                          : parent.callingVerified
+                            ? "Verified for calls"
+                            : "Number verification needed"}
                       </p>
                     </div>
                     <div className="space-y-2">
@@ -322,13 +336,18 @@ export function ParentsManager({
                       ) : null}
                     </div>
                   </div>
-                  {!parent.callingVerified ? (
+                  {presentationDemo ? (
+                    <p className="mt-4 rounded-lg bg-sage-50 px-3 py-2.5 text-xs leading-5 text-sage-700">
+                      This is a fictional sample profile. Live and test calls
+                      are disabled.
+                    </p>
+                  ) : !parent.callingVerified ? (
                     <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-900">
                       Ask your account administrator to verify this number
                       before starting calls. You can set up their routine now.
                     </p>
                   ) : null}
-                  {parent.status !== "active" ? (
+                  {!presentationDemo && parent.status !== "active" ? (
                     <p className="mt-4 text-xs leading-5 text-sage-600">
                       Reminder calls are paused. Resume calls when they’re
                       ready.
@@ -338,6 +357,7 @@ export function ParentsManager({
                     <TestCallButton
                       parent={parent}
                       disabled={workingParentId !== null}
+                      presentationDemo={presentationDemo}
                     />
                     <Button
                       type="button"
