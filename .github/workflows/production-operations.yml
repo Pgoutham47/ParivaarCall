@@ -44,7 +44,7 @@ jobs:
         env:
           POSTGRES_PASSWORD: isolated-recovery-check
         ports:
-          - 5432:5432
+          - 127.0.0.1:5432:5432
         options: >-
           --health-cmd pg_isready
           --health-interval 5s
