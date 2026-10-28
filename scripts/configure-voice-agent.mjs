@@ -19,11 +19,11 @@ const extraction=categories.categories.flatMap(c=>c.dispositions).find(d=>d.name
 if(!extraction)throw Error('Missing reminder_outcome extraction. Repair it before changing the agent.');
 const task=structuredClone(current.tasks[0]);
 const {provider, ...voice}=spec.voice;
-const synth=code=>({provider,stream:true,caching:true,buffer_size:100,audio_format:'wav',provider_config:{...voice,language:code}});
+const synth=code=>({provider,stream:true,caching:true,buffer_size:100,audio_format:'wav',provider_config:{...voice,...spec.languages[code].voice,language:code}});
 const transcription=code=>({...task.tools_config.transcriber,...spec.transcriber,language:code,context:'Medicine reminder conversation with an older adult. Distinguish already taken, not taken, later, and requests for help. Preserve negation and uncertainty.'});
 const shared=spec.system_prompt.join('\n\n');
 task.toolchain={execution:'sequential',pipelines:[['transcriber','llm','synthesizer']]};
-task.tools_config.llm_agent.llm_config={...task.tools_config.llm_agent.llm_config,model:spec.model,max_tokens:180,temperature:0.2};
+task.tools_config.llm_agent.llm_config={...task.tools_config.llm_agent.llm_config,model:spec.model,max_tokens:120,temperature:0.2};
 task.tools_config.synthesizer=synth('te');
 task.tools_config.transcriber=transcription('te');
 task.tools_config.multilingual_config={enabled:true,active_language:'te',language_switch_trigger:'caller_requested',languages:Object.fromEntries(Object.entries(spec.languages).map(([code,l])=>[code,{agent_name:'ParivaarCall',transcriber:transcription(code),synthesizer:synth(code),system_prompt:shared+'\n\n'+l.instruction,handoff_message:l.handoff}]))};
@@ -39,9 +39,10 @@ function verify(agent){
  for(const [code,language] of Object.entries(spec.languages)){
   const slot=multi.languages[code];assert.ok(slot.system_prompt.includes(language.instruction));
   assert.ok(slot.system_prompt.includes('{respect_mode}'));
-  assert.equal(slot.synthesizer.provider_config.voice_id,spec.voice.voice_id);
-  assert.equal(slot.synthesizer.provider_config.model,spec.voice.model);
-  assert.equal(slot.synthesizer.provider_config.speed,spec.voice.speed);
+  const expectedVoice={...spec.voice,...language.voice};
+  assert.equal(slot.synthesizer.provider_config.voice_id,expectedVoice.voice_id);
+  assert.equal(slot.synthesizer.provider_config.model,expectedVoice.model);
+  assert.equal(slot.synthesizer.provider_config.speed,expectedVoice.speed);
   assert.ok(slot.transcriber.language.startsWith(code));
   assert.ok(slot.synthesizer.provider_config.language.startsWith(code));
   assert.equal(actual.task_config.call_hangup_message[code],language.goodbye);

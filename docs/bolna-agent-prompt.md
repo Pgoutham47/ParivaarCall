@@ -17,9 +17,11 @@ The starting language comes from the caregiver's override or the parent's choice
 The caller can explicitly ask to change language; incidental English words do
 not automatically switch the conversation. Progress carries across switches.
 
-Saaras v4 recognizes speech; Bulbul v3's multilingual Kavya voice speaks at
-0.95 speed. Each slot has its own language code. The voice was confirmed in the
-account's catalog for all five languages. Native-script templates preserve
+Saaras v4 recognizes speech. Telugu uses Bulbul v4 Flash's Kavitha conversation
+voice, English uses Zarina, Hindi uses Kavya conversational, and Kannada uses
+Chaitra conversation. Tamil retains Bulbul v3 Kavya because the account's Tamil
+v4 catalog currently offers narration/advertising voices. Each speaks at 1.0
+speed with its own language code; the voice IDs were checked in the live catalog. Native-script templates preserve
 medicine names, numeric doses and units. English brand names can remain English.
 No voice cloning or pretending to be the child is used.
 
@@ -47,9 +49,12 @@ medicine. Test calls explicitly say no medicine is needed.
 Conversation-based hangup is enabled. After the result is acknowledged, the
 platform plays a localized farewell and disconnects. The model does not add
 another goodbye. The farewell is interruptible for a correction or question.
-A presence check starts at 12 seconds, at most once, with a 25-second silence
-limit and a 180-second overall limit. One-word interruptions are allowed, with
-600 ms linear delay and 500 ms endpointing as the initial tuning baseline.
+A presence check starts at 15 seconds, at most once, with a 28-second silence
+limit and a 180-second overall limit. Interruptions require two words, with
+500 ms interruption backoff, 400 ms linear delay and 350 ms endpointing. Stop
+words are still handled by the platform. Moderate noise cancellation is set to
+70. These changes follow a real Telugu test in which a one-word interruption
+cut an acknowledgement into a fragment and led to a silence-check detour.
 These values need listening checks with the intended speakers before claiming
 natural timing in every language. Voicemail detection remains off to avoid
 prematurely disconnecting quiet older adults; unconfirmed calls never count as
@@ -96,3 +101,15 @@ remain deferred at the user's request.
 - [Timing and interruption settings](https://www.bolna.ai/docs/agent-setup/engine-tab)
 - [Multilingual system messages](https://www.bolna.ai/docs/customizations/auto-switch-multilingual-messages)
 - [Sarvam voice configuration](https://www.bolna.ai/docs/sarvam-voice)
+
+## First live listening check
+
+The authorized Telugu test completed with structured confirmation, a saved
+recording, and provider termination `agent_ended_call` / `end_call_tool`. The
+user reported slow, artificial delivery. The transcript showed a fragmented
+acknowledgement, a presence check, and an unnecessary repeat confirmation. The
+configuration was then tuned as described above, with native acknowledgement
+examples, no guessed sir/madam addresses, a rule to retain the established
+answer across interruptions, and language-specific conversational voices.
+The revised delivery still requires a new listening check; no claim of perfect
+voice quality is made.
