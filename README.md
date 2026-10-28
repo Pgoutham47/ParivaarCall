@@ -130,8 +130,9 @@ nor saved agent settings guarantees perfect speech or uninterrupted service.
 The shared presentation account is marked by `lib/demo-account.ts`. Its active
 sample schedules are visible for exploration, but generation, real/test calling,
 retries, and notifications are disabled independently of the calling plan.
-The dashboard labels all activity as fictional. Sample history has final outcomes
-only, with no provider IDs, recordings, or queued calls.
+History has final outcomes only, with no provider execution IDs or queued calls.
+Generated conversation audio retains its provenance in `audio_provider`; it is
+separate from real Bolna recordings and uses built-in neural voices.
 
 Preview the initial dataset with
 `node --env-file=.env.local --import tsx scripts/seed-presentation-demo.mjs`.
@@ -139,6 +140,15 @@ After deploying the guards, add `--apply` to populate the empty demo account.
 The script verifies the deployed call block, checks the exact account identity,
 backs up existing settings, and refuses to overwrite visitor activity.
 Credentials stay in the ignored private backup folder, never in source control.
+
+To prepare conversation audio, export the account's transcripts with
+`node --env-file=.env.local --import tsx scripts/add-presentation-audio.mjs --export`.
+Run `python3 scripts/generate-presentation-audio.py --generate` with `edge-tts`
+and FFmpeg installed. It reuses identical utterances, creates separate speaker
+voices, and saves MP3 assets under `public/audio/conversations/`.
+Deploy those assets, then run the add-audio script with `--apply`; without the flag
+it only previews the attachment plan. It backs up existing rows and verifies all
+published audio URLs before attaching them. Live calling stays disabled.
 
 ## Archived creative work
 

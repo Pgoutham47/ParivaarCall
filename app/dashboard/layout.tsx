@@ -42,22 +42,7 @@ export default async function DashboardLayout({
           id="dashboard-content"
           className="mx-auto max-w-[1440px] px-5 py-7 pb-28 sm:px-8 sm:py-8 lg:px-10 lg:pb-12"
         >
-          {isPresentationDemo(user.id) ? (
-            <aside
-              className="mb-7 rounded-xl border border-sage-200 bg-sage-50 px-4 py-3 text-sm leading-6 text-sage-800"
-              aria-label="Demo workspace"
-            >
-              <p className="font-semibold">
-                Presentation demo · Fictional sample activity
-              </p>
-              <p className="mt-1 text-xs leading-5 text-sage-700">
-                Explore family profiles, medicine routines, example
-                conversations, and alerts. Calls and notifications are disabled
-                for this account. Changes are shared with everyone using this
-                demo login.
-              </p>
-            </aside>
-          ) : freeTierCalling() ? (
+          {!isPresentationDemo(user.id) && freeTierCalling() ? (
             <details className="group mb-7 rounded-xl border border-[#e5dfc7] bg-[#faf7ec] px-4 py-3 text-xs text-[#756344]">
               <summary className="focus-ring flex cursor-pointer items-center gap-2.5 rounded leading-5">
                 <Info size={15} className="shrink-0" aria-hidden="true" />

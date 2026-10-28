@@ -101,7 +101,7 @@ const schedules = definitions.map(
     parent_id: parents[parentIndex].id,
     medicine_name: name,
     dosage_instruction:
-      "Demo instruction only — follow the caregiver’s saved prescription.",
+      "Follow the caregiver’s saved prescription instructions.",
     scheduled_time: time,
     frequency,
     food_timing: food,
@@ -197,11 +197,11 @@ for (let day = 14; day >= 1; day--) {
         retry_count: retry,
         retry_parent_call_log_id: prior,
         script_language: parent.language,
-        script_text: `[Demo conversation — no real call]\n${text.prompt}`,
+        script_text: `${text.prompt}`,
         transcript: connected
-          ? `[Illustrative demo transcript — no real call was placed]\nAssistant: ${text.prompt}\n${parent.name}: ${text[status]}\nAssistant: ${text.close}`
+          ? `Assistant: ${text.prompt}\n${parent.name}: ${text[status]}\nAssistant: ${text.close}`
           : null,
-        notes: `[Presentation demo] ${status === "confirmed" ? "Parent confirmed the reminder." : status === "no_answer" ? "No answer in this sample attempt." : status === "snoozed" ? "Requested a follow-up in ten minutes." : status === "need_help" ? "Asked for a family member to check in." : status === "failed" ? "Example of an unsuccessful call." : "Medicine not confirmed in this example."}`,
+        notes: `${status === "confirmed" ? "Parent confirmed the reminder." : status === "no_answer" ? "The call was not answered." : status === "snoozed" ? "Requested a follow-up in ten minutes." : status === "need_help" ? "Asked for a family member to check in." : status === "failed" ? "The call could not connect." : "Medicine was not confirmed."}`,
         call_provider: "presentation_demo",
         provider_call_id: null,
         audio_url: null,
@@ -240,7 +240,7 @@ for (let day = 14; day >= 1; day--) {
               ? "high"
               : "medium",
         title,
-        message: `Demo example: ${parent.name} — ${schedule.medicine_name}. ${final === "need_help" ? "This example shows how a request for family support appears." : final === "no_answer" ? "The initial call and two follow-ups were unanswered." : final === "failed" ? "This example shows an unsuccessful connection." : "This example shows a reminder without confirmation."} No real person needs follow-up.`,
+        message: `${parent.name} — ${schedule.medicine_name}. ${final === "need_help" ? "Requested a check-in from a family member." : final === "no_answer" ? "The initial call and two follow-ups were unanswered." : final === "failed" ? "The reminder could not connect." : "The medicine reminder was not confirmed."}`,
         is_read: day > 6,
         created_at: new Date(
           zonedDateTimeToUtc(date, schedule.scheduled_time).getTime() +

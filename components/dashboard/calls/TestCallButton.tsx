@@ -64,7 +64,7 @@ export function TestCallButton({
         disabled={busy || disabled || !available}
         title={
           presentationDemo
-            ? "Live and test calls are disabled for this presentation account"
+            ? "Live and test calls are disabled for this account"
             : !available
               ? parent.status !== "active"
                 ? "Resume this family member’s calls first"
@@ -77,7 +77,7 @@ export function TestCallButton({
           setOpen(true);
         }}
       >
-        {presentationDemo ? "Calls disabled in demo" : "Test a call"}
+        {presentationDemo ? "Calls disabled" : "Test a call"}
       </Button>
       <Dialog
         open={open && !presentationDemo}

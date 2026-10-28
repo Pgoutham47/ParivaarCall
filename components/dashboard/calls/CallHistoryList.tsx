@@ -1,7 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, Languages, Phone, Search, X } from "lucide-react";
+import {
+  ChevronDown,
+  Headphones,
+  Languages,
+  Phone,
+  Search,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -113,6 +120,12 @@ export function CallHistoryList({ calls }: { calls: CallLog[] }) {
                       {call.createdAt}
                       <span className="mx-2">·</span>
                       {call.scriptLanguage}
+                      {call.audioUrl ? (
+                        <span className="ml-3 inline-flex items-center gap-1 text-sage-700">
+                          <Headphones className="h-3 w-3" aria-hidden="true" />
+                          Audio available
+                        </span>
+                      ) : null}
                     </p>
                   </div>
                   <div className="sm:text-right">
@@ -148,6 +161,25 @@ export function CallHistoryList({ calls }: { calls: CallLog[] }) {
                     safetyNote={call.safetyNote}
                   />
                 </div>
+                {call.audioUrl ? (
+                  <section className="mt-5">
+                    <h3 className="eyebrow">CONVERSATION AUDIO</h3>
+                    <audio
+                      className="mt-3 h-11 w-full max-w-lg"
+                      controls
+                      preload="none"
+                      onPlay={(event) => {
+                        document.querySelectorAll("audio").forEach((player) => {
+                          if (player !== event.currentTarget) player.pause();
+                        });
+                      }}
+                      aria-label={`Conversation audio for ${call.parentName}`}
+                    >
+                      <source src={call.audioUrl} />
+                      Your browser cannot play this audio.
+                    </audio>
+                  </section>
+                ) : null}
                 {call.transcript ? (
                   <section className="mt-5">
                     <h3 className="eyebrow">CONVERSATION</h3>
@@ -158,20 +190,6 @@ export function CallHistoryList({ calls }: { calls: CallLog[] }) {
                     >
                       {call.transcript}
                     </p>
-                  </section>
-                ) : null}
-                {call.audioUrl ? (
-                  <section className="mt-5">
-                    <h3 className="eyebrow">CALL RECORDING</h3>
-                    <audio
-                      className="mt-3 h-11 w-full max-w-lg"
-                      controls
-                      preload="none"
-                      aria-label={`Call recording for ${call.parentName}`}
-                    >
-                      <source src={call.audioUrl} />
-                      Your browser cannot play this recording.
-                    </audio>
                   </section>
                 ) : null}
                 {process.env.NODE_ENV !== "production" ? (

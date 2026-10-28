@@ -280,18 +280,8 @@ export function ParentsManager({
                       </div>
                     </div>
                     <StatusBadge
-                      label={
-                        presentationDemo
-                          ? "Sample profile"
-                          : parent.status === "active"
-                            ? "Active"
-                            : "Paused"
-                      }
-                      tone={
-                        !presentationDemo && parent.status === "active"
-                          ? "green"
-                          : "neutral"
-                      }
+                      label={parent.status === "active" ? "Active" : "Paused"}
+                      tone={parent.status === "active" ? "green" : "neutral"}
                     />
                   </div>
                   <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -309,7 +299,7 @@ export function ParentsManager({
                           <Check className="h-3.5 w-3.5" aria-hidden="true" />
                         ) : null}
                         {presentationDemo
-                          ? "Calls disabled in demo"
+                          ? "Calls disabled"
                           : parent.callingVerified
                             ? "Verified for calls"
                             : "Number verification needed"}
@@ -336,12 +326,7 @@ export function ParentsManager({
                       ) : null}
                     </div>
                   </div>
-                  {presentationDemo ? (
-                    <p className="mt-4 rounded-lg bg-sage-50 px-3 py-2.5 text-xs leading-5 text-sage-700">
-                      This is a fictional sample profile. Live and test calls
-                      are disabled.
-                    </p>
-                  ) : !parent.callingVerified ? (
+                  {!presentationDemo && !parent.callingVerified ? (
                     <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-900">
                       Ask your account administrator to verify this number
                       before starting calls. You can set up their routine now.

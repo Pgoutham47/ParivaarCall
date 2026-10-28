@@ -7,4 +7,4 @@ export function isPresentationDemo(caregiverId?: string | null) {
 }
 
 export const DEMO_CALLING_DISABLED_MESSAGE =
-  "This presentation account uses fictional examples. Live and test calls are disabled.";
+  "Live and test calls are disabled for this account.";
