@@ -336,12 +336,11 @@ supabase/migrations/    SQL schema and RLS migrations
 - WhatsApp/SMS notification channels alongside email
 - Call recording retention policy
 - Payments
-- Production validation and automated tests
 
 
 ## Production safeguards (October 2026)
 
-Apply `supabase/migrations/006_production_safeguards.sql` before deploying the updated application. It makes call creation/results server-only, validates family records, scopes medicine references to their owner, and atomically cancels queued work when family records change. Call claims serialize with parent/medicine changes. The live database has this migration applied.
+Apply `supabase/migrations/007_production_safeguards.sql` before deploying the updated application. It makes call creation/results server-only, validates family records, scopes medicine references to their owner, and atomically cancels queued work when family records change. Call claims serialize with parent/medicine changes. The live database has this migration applied.
 
 `FREE_TIER_CALLING=true` is the default. `VERIFIED_CALL_NUMBERS` is server-only JSON mapping caregiver user IDs to arrays of verified E.164 phone numbers, for example `{"caregiver-uuid":["+91verified-number"]}`. Add entries only after verification with the calling account is confirmed. The app never treats saving a phone number as verification. Invalid/missing configuration blocks live calls. Local simulations also accept a comma-separated list of fictional numbers. Set `FREE_TIER_CALLING=false` only after the calling account is upgraded and the product's enrollment/consent policy permits unrestricted recipients.
 
@@ -349,4 +348,6 @@ The Parents screen supports a one-time test call with confirmation. It does not 
 
 Validation: `npm run lint`, `npm test`, and `npm run build`. `scripts/check-production.mjs` additionally tests two isolated accounts against a local production build on port 3001; it requires local server settings `CALL_PROVIDER=simulated VERIFIED_CALL_NUMBERS=+12025550123 FREE_TIER_CALLING=true RESEND_API_KEY=`. Run it with `node --env-file=.env.local scripts/check-production.mjs`. It uses temporary database accounts, then removes them; it must never target the live website for simulated call placement.
 
-Remaining operational limits: free-tier capacity/uptime, operator-managed number verification, and dashboard-only caregiver alerts. Paid capacity, off-site backups with a tested restore process, and sustained production load/availability monitoring must be established before treating this as a general-availability health service. Successful tests are evidence of the checked paths, not a guarantee of perfect reliability.
+Remaining operational limits: free-tier capacity/uptime, operator-managed number verification, and dashboard-only caregiver alerts. Hourly availability/worker checks and daily encrypted off-site backups with isolated data-restore verification are active in GitHub Actions. Backups are retained for 30 days. See `docs/operations.txt` for recovery instructions and key storage. A full infrastructure failover and sustained load test have not been performed; paid capacity remains a deployment decision before general availability. Successful tests are evidence of the checked paths, not a guarantee of perfect reliability.
+
+Operations migration: `supabase/migrations/008_operations.sql` is applied in production. Its health and recovery RPCs are restricted to the server role. Both anonymous and ordinary authenticated access were tested and rejected.
