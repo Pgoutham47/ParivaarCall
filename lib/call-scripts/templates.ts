@@ -21,7 +21,6 @@ export type LanguageTemplate = {
     after_food: string;
   };
   retryPrefix: string;
-  opening(address: string): string;
   medicineLine(medicineInstruction: string): string;
   closingQuestion: string;
   safetyNote: string;
@@ -31,8 +30,6 @@ export type LanguageTemplate = {
   // are applied in sequence. Anything unmatched passes through untouched.
   dosagePhrases: ReadonlyArray<readonly [string, string]>;
 };
-
-export const supportedCallLanguages: SupportedCallLanguage[] = ["Telugu", "Hindi", "English", "Tamil", "Kannada"];
 
 // Scripts are written the way a family member would actually speak on the phone:
 // a short greeting, one plain sentence about the medicine, one direct question.
@@ -59,7 +56,6 @@ export const languageTemplates: Record<SupportedCallLanguage, LanguageTemplate> 
       after_food: "after food"
     },
     retryPrefix: "I am calling again. ",
-    opening: (address) => `Hello ${address}, how are you?`,
     medicineLine: (medicineInstruction) => `It is time for your ${medicineInstruction}.`,
     closingQuestion: "Have you taken it?",
     safetyNote: "Reminder only. Follow the dosage prescribed by your doctor or caregiver.",
@@ -80,7 +76,6 @@ export const languageTemplates: Record<SupportedCallLanguage, LanguageTemplate> 
       after_food: "భోజనం తర్వాత"
     },
     retryPrefix: "మళ్లీ ఒకసారి ఫోన్ చేస్తున్నాను. ",
-    opening: (address) => `${address}, బాగున్నారా?`,
     medicineLine: (medicineInstruction) => `మీ ${medicineInstruction} వేసుకునే సమయం అయ్యింది.`,
     closingQuestion: "వేసుకున్నారా?",
     safetyNote: "ఇది కేవలం రిమైండర్ మాత్రమే. డాక్టర్ లేదా కుటుంబ సభ్యులు చెప్పిన మోతాదునే పాటించండి.",
@@ -118,7 +113,6 @@ export const languageTemplates: Record<SupportedCallLanguage, LanguageTemplate> 
       after_food: "खाने के बाद"
     },
     retryPrefix: "यह दोबारा याद दिलाने के लिए कॉल है। ",
-    opening: (address) => `नमस्ते ${address}, आप कैसे हैं?`,
     medicineLine: (medicineInstruction) => `आपकी ${medicineInstruction} लेने का समय हो गया है।`,
     closingQuestion: "आपने ले ली?",
     safetyNote: "यह सिर्फ़ रिमाइंडर है। डॉक्टर या परिवार के बताए हुए डोज़ का पालन कीजिए।",
@@ -156,7 +150,6 @@ export const languageTemplates: Record<SupportedCallLanguage, LanguageTemplate> 
       after_food: "சாப்பாட்டுக்கு பிறகு"
     },
     retryPrefix: "மறுபடியும் ஃபோன் பண்றேன். ",
-    opening: (address) => `வணக்கம் ${address}, எப்படி இருக்கீங்க?`,
     medicineLine: (medicineInstruction) => `உங்க ${medicineInstruction} எடுக்க நேரம் ஆயிடுச்சு.`,
     closingQuestion: "எடுத்தீங்களா?",
     safetyNote: "இது நினைவூட்டல் மட்டும். டாக்டர் அல்லது குடும்பத்தினர் சொன்ன அளவைப் பின்பற்றுங்கள்.",
@@ -194,7 +187,6 @@ export const languageTemplates: Record<SupportedCallLanguage, LanguageTemplate> 
       after_food: "ಊಟದ ನಂತರ"
     },
     retryPrefix: "ಮತ್ತೆ ಫೋನ್ ಮಾಡ್ತಿದ್ದೀನಿ. ",
-    opening: (address) => `ನಮಸ್ಕಾರ ${address}, ಹೇಗಿದ್ದೀರಾ?`,
     medicineLine: (medicineInstruction) => `ನಿಮ್ಮ ${medicineInstruction} ತೆಗೆದುಕೊಳ್ಳುವ ಸಮಯ ಆಗಿದೆ.`,
     closingQuestion: "ತೆಗೆದುಕೊಂಡಿರಾ?",
     safetyNote: "ಇದು ಕೇವಲ ಜ್ಞಾಪನೆ. ಡಾಕ್ಟರ್ ಅಥವಾ ಕುಟುಂಬದವರು ಹೇಳಿದ ಪ್ರಮಾಣವನ್ನೇ ಪಾಲಿಸಿ.",

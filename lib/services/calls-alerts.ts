@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getLanguageTemplate } from "@/lib/call-scripts";
 import { APP_TIMEZONE } from "@/lib/services/timezone";
 import type { Database } from "@/lib/database.types";
-import type { Alert, AlertSeverity, AlertType, AudioStatus, CallLog, CallStatus, ResponseType } from "@/lib/types";
+import type { Alert, AlertSeverity, AlertType, CallLog, CallStatus, ResponseType } from "@/lib/types";
 
 type CallLogRow = Database["public"]["Tables"]["call_logs"]["Row"] & {
   parents?: { name: string | null } | null;
@@ -53,11 +53,6 @@ function mapCallLog(row: CallLogRow): CallLog {
     shortPreviewText: scriptText ? `${scriptText.slice(0, 130)}${scriptText.length > 130 ? "..." : ""}` : "Script not generated yet.",
     safetyNote: template.safetyNote,
     audioUrl: row.audio_url,
-    audioStatus: (row.audio_status ?? "not_generated") as AudioStatus,
-    audioProvider: row.audio_provider,
-    audioGeneratedAt: row.audio_generated_at ? formatCreatedAt(row.audio_generated_at) : null,
-    callProvider: row.call_provider,
-    providerCallId: row.provider_call_id,
     transcript: row.transcript
   };
 }

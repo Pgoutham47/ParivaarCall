@@ -1,7 +1,7 @@
 // Focused, isolated settings/dispatch checks. Never run with a real provider.
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
-import { writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 import { updateVoiceSettings, getOrCreateVoiceSettings } from '../lib/services/settings.ts';
 import { processPendingCall, finalizeCallResult } from '../lib/services/call-engine.ts';
@@ -59,6 +59,7 @@ try{
  if(sameDay){const retry=await ok(admin.from('call_logs').select('*').eq('retry_parent_call_log_id',c.id).single());assert.equal(retry.retry_count,1);assert.equal(retry.script_language,'Hindi');assert.ok(Math.abs(Date.parse(retry.scheduled_for)-before-300000)<10000);}
  checks.push('Saved retry count and gap control real database retry creation, including the end-of-day boundary');
  console.log(JSON.stringify({checks,realCallsPlaced:0},null,2));
+ mkdirSync('reports',{recursive:true});
  writeFileSync('reports/voice-settings-verification.json',JSON.stringify({checkedAt:new Date().toISOString(),checks,realCallsPlaced:0},null,2));
 }finally{
  if(userId){await admin.from('call_logs').update({call_status:'failed'}).eq('caregiver_id',userId).eq('call_status','calling');await ok(admin.auth.admin.deleteUser(userId));}

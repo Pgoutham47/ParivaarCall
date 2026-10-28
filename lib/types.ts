@@ -40,10 +40,9 @@ export type ParentInput = {
 export type MealTiming = "before_food" | "after_food";
 export type Frequency = "daily" | "weekly" | "custom";
 export type ImportanceLevel = "routine" | "important";
-export type SupportedCallLanguage = "Telugu" | "Hindi" | "English" | "Tamil" | "Kannada";
-
 // Every offered language has a script and a matching live recognition/voice slot.
-export const selectableCallLanguages: ReadonlyArray<SupportedCallLanguage> = ["Telugu", "English", "Hindi", "Tamil", "Kannada"];
+export const selectableCallLanguages = ["Telugu", "English", "Hindi", "Tamil", "Kannada"] as const;
+export type SupportedCallLanguage = (typeof selectableCallLanguages)[number];
 
 export type MedicineSchedule = {
   id: string;
@@ -112,11 +111,6 @@ export type CallLog = {
   shortPreviewText: string;
   safetyNote: string | null;
   audioUrl: string | null;
-  audioStatus: AudioStatus;
-  audioProvider: string | null;
-  audioGeneratedAt: string | null;
-  callProvider: string | null;
-  providerCallId: string | null;
   transcript: string | null;
 };
 
@@ -234,5 +228,3 @@ export type MedicineReminderScript = {
   shortPreviewText: string;
   safetyNote?: string;
 };
-
-export type AudioStatus = "not_generated" | "mock_generated" | "generated" | "failed";

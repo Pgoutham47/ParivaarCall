@@ -5,11 +5,12 @@ import type {
   RespectMode,
   SupportedCallLanguage
 } from "@/lib/types";
-import { languageTemplates, supportedCallLanguages, type LanguageTemplate } from "@/lib/call-scripts/templates";
+import { languageTemplates, type LanguageTemplate } from "@/lib/call-scripts/templates";
+import { selectableCallLanguages } from "@/lib/types";
 import { reminderOpening } from "@/lib/voice-languages";
 
 function normalizeLanguage(language: string | null | undefined): SupportedCallLanguage {
-  const normalized = supportedCallLanguages.find((candidate) => candidate.toLowerCase() === language?.trim().toLowerCase());
+  const normalized = selectableCallLanguages.find((candidate) => candidate.toLowerCase() === language?.trim().toLowerCase());
 
   if (!normalized) {
     if (language && language !== "Parent preferred language") {
@@ -62,7 +63,7 @@ export function getRelationshipAddress(
 const FOOD_TIMING_IN_DOSAGE = /\b(before|after)\s+(food|meals?|eating)\b/gi;
 
 // Rewrites the English dosage a caregiver typed ("1 tablet with water") into the
-// call language ("oka tablet neelltho"). Unrecognized words - brand names, "500
+// call language ("1 టాబ్లెట్ నీళ్లతో"). Unrecognized words - brand names, "500
 // mg", or dosage already written in the local language - pass through unchanged.
 export function localizeDosageInstruction(dosage: string, template: LanguageTemplate) {
   return template.dosagePhrases

@@ -1,359 +1,133 @@
 # ParivaarCall
 
-ParivaarCall is an MVP caregiver web app where children can manage medicine reminder schedules for elderly parents. Parents do not use an app. The app uses Supabase for authentication, caregiver profiles, parents, medicines, call logs, alerts, and voice settings. Reminder calls are made by a Bolna voice agent using its default calling line or a connected telephony provider.
+A caregiver web app for managing medicine reminder calls to elderly parents.
+Parents receive a normal phone call; they do not need an app.
 
-## Brand assets
+The app supports parent and medicine management, scheduled reminders, call
+history and recordings, dashboard alerts, adherence analytics, and voice settings.
+Calls support **Telugu, English, Hindi, Tamil, and Kannada**.
 
-The approved identity is **The Embrace icon with the soft-serif wordmark (option B)**. Use `public/brand/parivaarcall-logo.png` for the full logo and `public/brand/parivaarcall-icon.png` for the symbol. App screens share `components/ui/BrandLogo.tsx`. Master files, approved usage, and archived concepts live in [marketing/brand](marketing/brand/README.md).
+## Stack
 
-## Tech Stack
+- Next.js App Router, React, TypeScript, and Tailwind CSS
+- Supabase authentication and Postgres with row-level security
+- Bolna for voice conversations through its default or connected calling line
+- Vercel for the web app and API routes
+- Supabase `pg_cron` for reminder scheduling; GitHub Actions for health and recovery
 
-- Next.js App Router
-- TypeScript
-- Tailwind CSS
-- Supabase Auth
-- Supabase Postgres with Row Level Security
-- [Bolna](https://bolna.ai) voice AI agent (ASR + LLM + TTS, Indian languages) for the reminder conversations
-- Bolna's default calling line, or a connected provider such as [Vobiz](https://vobiz.ai)
+## Run locally
 
-## Local Setup
+Use Node.js 22 or later.
 
-```bash
-npm install
+```sh
+npm ci
 cp .env.example .env.local
+# Fill in the Supabase values and server secrets in .env.local.
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
-
-Run `npm test` for the phone-number, call-outcome, webhook-status, analytics, and timezone regression checks. These tests do not place calls. `npm run build` checks the production build, types, and lint rules.
-
-## Environment Variables
-
-Create `.env.local` with:
-
-```bash
-NEXT_PUBLIC_SUPABASE_URL=your-project-url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-CRON_SECRET=long-random-secret
-APP_TIMEZONE=Asia/Kolkata
-CALL_PROVIDER=simulated
-ALLOW_RANDOM_SIMULATED_CALLS=false
-BOLNA_API_KEY=
-BOLNA_AGENT_ID=
-BOLNA_FROM_PHONE_NUMBER=
-BOLNA_WEBHOOK_SECRET=
-```
-
-`SUPABASE_SERVICE_ROLE_KEY` is required for cron-style API routes that run without a logged-in browser session. Do not expose it to the browser. `CALL_PROVIDER=simulated` stays the safe default: no real calls are placed. Set `CALL_PROVIDER=bolna` to place real calls once Bolna and Vobiz are configured.
-
-`APP_TIMEZONE` (default `Asia/Kolkata`) is the IANA timezone all call scheduling uses. Medicine times entered by caregivers are interpreted in this zone regardless of the server's clock, so deployments on UTC hosts such as Vercel still call at the parent's local time.
-
-## Bolna Calling Setup
-
-1. Create a [Bolna](https://bolna.ai) account and ensure it has calling credit.
-2. Use Bolna's default line, or connect your telephony provider in Bolna's provider settings.
-3. Leave `BOLNA_FROM_PHONE_NUMBER` empty for the default line. Only set it when the number belongs to your account and its provider is connected. Parent phone numbers are normalized to international format; 10-digit Indian mobile numbers automatically receive `+91`.
-4. Create a Bolna voice agent for medicine reminders:
-   - Prompt it to read the reminder using the `reminder_script` context variable and speak in `script_language`.
-   - Configure post-call extraction in the `ParivaarCall` category with a field named `reminder_outcome` whose objective value is one of `taken`, `later`, `help`, or `no_response`. Both current category-based and legacy flat extractions are supported.
-   - Set the agent's webhook URL to `https://your-domain/api/webhooks/bolna?secret=<BOLNA_WEBHOOK_SECRET>`.
-5. Copy the Bolna API key and agent id into `BOLNA_API_KEY` and `BOLNA_AGENT_ID`.
-6. Set `CALL_PROVIDER=bolna`. Verify the agent ID exists for the API key before deploying. The app waits for the final `completed` event; `call-disconnected` still has extraction pending and must not finalize a dose.
-
-The app passes these context variables with every call: `call_log_id`, `parent_name`, `medicine_name`, `dosage_instruction`, `scheduled_time`, `script_language`, `reminder_script`, and `retry_count`.
-
-## Deployment
-
-Hosting is Vercel; there is no separate backend service. The Next.js API routes under `app/api/` are the backend and run as serverless functions alongside the pages.
-
-1. Push the repository to GitHub and import it in Vercel (framework preset: Next.js, no build overrides needed).
-2. Set these environment variables in the Vercel project:
-
-   | Variable | Notes |
-   | --- | --- |
-   | `NEXT_PUBLIC_SUPABASE_URL` | From the Supabase project |
-   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | From the Supabase project |
-   | `SUPABASE_SERVICE_ROLE_KEY` | Server-only; never expose to the browser |
-   | `CRON_SECRET` | Long random string; must match `private.cron_config` |
-   | `APP_TIMEZONE` | `Asia/Kolkata` |
-   | `APP_URL` | The deployed URL, used for links in alert emails |
-   | `CALL_PROVIDER` | `simulated` until the Bolna agent is verified, then `bolna` |
-   | `BOLNA_API_KEY`, `BOLNA_AGENT_ID`, `BOLNA_FROM_PHONE_NUMBER` | Bolna + Vobiz |
-   | `BOLNA_WEBHOOK_SECRET` | Also used in the Bolna agent's webhook URL |
-   | `RESEND_API_KEY`, `NOTIFY_FROM_EMAIL` | Optional; alert emails are skipped when unset |
-
-3. Deploy, then point the Bolna agent's webhook at `https://your-domain/api/webhooks/bolna?secret=<BOLNA_WEBHOOK_SECRET>`.
-4. Run the scheduler migration — see [Scheduler Setup](#scheduler-setup).
-
-Deploying with `CALL_PROVIDER=simulated` first is recommended: the whole pipeline runs end to end without placing real phone calls.
-
-## Supabase Setup
-
-1. Create a Supabase project.
-2. Copy the project URL and anon key into `.env.local`.
-3. Open the Supabase SQL editor.
-4. Run [supabase/migrations/001_initial_schema.sql](./supabase/migrations/001_initial_schema.sql).
-5. Run [supabase/migrations/002_call_engine.sql](./supabase/migrations/002_call_engine.sql).
-6. Run [supabase/migrations/003_call_scripts_tts.sql](./supabase/migrations/003_call_scripts_tts.sql).
-7. Run [supabase/migrations/004_bolna_vobiz.sql](./supabase/migrations/004_bolna_vobiz.sql).
-8. In Supabase Auth, enable email/password authentication.
-9. Configure email confirmation based on your local testing preference. If confirmation is enabled, signup will create the account and ask the user to confirm email before login.
-10. After deploying, run [supabase/migrations/005_scheduler_cron.sql](./supabase/migrations/005_scheduler_cron.sql) to start the scheduler — see [Scheduler Setup](#scheduler-setup) for the values it needs.
-
-## Database Tables
-
-The migration creates:
-
-- `profiles`
-- `parents`
-- `medicine_schedules`
-- `voice_settings`
-- `call_logs`
-- `alerts`
-
-All tables have Row Level Security enabled. Caregivers can only read/write rows where their user id owns the row. Call logs and alerts are readable by the owner, and authenticated owner inserts are allowed so future app/dev actions can create records before telephony webhooks are added.
-
-## Available Screens
-
-- `/` landing page
-- `/login` Supabase email/password login
-- `/signup` Supabase signup with profile creation
-- `/dashboard` real parent and medicine summary
-- `/dashboard/parents` Supabase-backed parent CRUD
-- `/dashboard/medicines` Supabase-backed medicine schedule CRUD
-- `/dashboard/calls` Supabase call logs with empty state
-- `/dashboard/alerts` Supabase alerts with empty state
-- `/dashboard/analytics` adherence analytics: 7/30-day adherence, streak, daily confirmations, per-medicine and per-parent breakdowns
-- `/dashboard/settings` Supabase-backed voice and notification settings
-
-## Call Scheduling Engine v2
-
-The call engine supports two providers:
-
-- `CALL_PROVIDER=simulated` (default): no real phone calls, SMS, or WhatsApp messages. Results are returned synchronously.
-- `CALL_PROVIDER=bolna`: real outbound calls. The engine POSTs to the Bolna API; Bolna's voice agent dials the parent through the connected Vobiz line, has the reminder conversation, and reports the outcome back to `/api/webhooks/bolna`.
-
-Flow:
-
-1. Active medicine schedules are read for the current day.
-2. Pending `call_logs` are created for each schedule time. Saving a medicine in the dashboard also creates today's log immediately, so a reminder added during the day still fires today; a time that has already passed is left for tomorrow rather than dialing at once.
-3. Due pending calls are processed through the selected provider.
-4. Simulated calls finalize immediately; Bolna calls stay in `calling` with a stored `provider_call_id` until the webhook arrives.
-5. `call_logs` are updated with status, response type, transcript, and recording URL (Bolna).
-6. Alerts are created for missed medicine, help requests, and no-answer calls after retries are exhausted.
-7. Snoozed and retryable no-answer calls create retry `call_logs` using `voice_settings.retry_delay_minutes` and `voice_settings.max_retries`.
-
-Statuses:
-
-- `pending`
-- `calling`
-- `confirmed`
-- `snoozed`
-- `no_answer`
-- `missed`
-- `failed`
-- `need_help`
-
-Response types:
-
-- `dtmf_1_taken`
-- `dtmf_2_later`
-- `dtmf_3_help`
-- `speech_taken`
-- `speech_later`
-- `speech_help`
-- `no_response`
-
-## Call Engine API Routes
-
-All cron routes accept either header (query-string secrets are not accepted, so they never end up in access logs):
-
-```bash
-Authorization: Bearer $CRON_SECRET
-```
-
-or:
-
-```bash
-x-cron-secret: $CRON_SECRET
-```
-
-In production the schedule runs from Supabase `pg_cron`, not Vercel. Vercel's Hobby plan allows only one cron run per day, and a medicine reminder has to be checked every few minutes; `pg_cron` runs at true intervals and is included free with Supabase. See [Scheduler Setup](#scheduler-setup).
-
-In development only, a logged-in dashboard user can trigger these routes from the dev controls without exposing `CRON_SECRET` to the browser.
-
-- `POST /api/calls/generate` creates today's pending call logs and returns created/skipped counts.
-- `POST /api/calls/process` processes due pending call logs and returns outcome counts (Bolna calls count as `calling` until the webhook lands).
-- `POST /api/calls/process-one` processes one call log for development testing; returns 409 if the log is no longer pending.
-- `POST /api/calls/reconcile` (also GET) finds calls stuck in `calling` for 10+ minutes, polls the Bolna execution API for their result, finalizes completed ones, and marks anything unresolved after 60 minutes as `failed` so alerts still fire when a webhook is lost.
-- `POST /api/webhooks/bolna` receives Bolna call results (status, extracted `reminder_outcome`, transcript, recording) and finalizes the matching call log; protected by `BOLNA_WEBHOOK_SECRET` via `x-webhook-secret` header or `?secret=` query param. Events whose status is still queued/ringing/in-progress only store the transcript and recording — they never finalize the call, so a mid-call event cannot close a reminder before the parent has answered. Finalization claims the row, so a redelivered webhook cannot create a second alert or a second retry.
-- `POST /api/alerts/[alertId]/read` marks one alert as read for the logged-in caregiver.
-
-Example local testing:
-
-```bash
-curl -X POST http://localhost:3000/api/calls/generate \
-  -H "Authorization: Bearer $CRON_SECRET"
-
-curl -X POST http://localhost:3000/api/calls/process \
-  -H "Authorization: Bearer $CRON_SECRET"
-
-curl -X POST http://localhost:3000/api/calls/process-one \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $CRON_SECRET" \
-  -d '{"callLogId":"CALL_LOG_ID","simulatedResponse":"confirmed"}'
-```
-
-Allowed `simulatedResponse` values:
-
-- `confirmed`
-- `snoozed`
-- `no_answer`
-- `missed`
-- `need_help`
-
-## Scheduler Setup
-
-The call engine is driven by three scheduled jobs defined in [supabase/migrations/005_scheduler_cron.sql](./supabase/migrations/005_scheduler_cron.sql):
-
-| Job | Schedule (UTC) | Purpose |
-| --- | --- | --- |
-| `parivaar-generate-call-logs` | `45 18 * * *` (00:15 IST) | Create today's pending call logs |
-| `parivaar-process-calls` | `* * * * *` | Place calls that are now due |
-| `parivaar-reconcile-calls` | `*/15 * * * *` | Recover calls whose webhook never arrived |
-
-To enable them:
-
-1. Deploy the app first, so you have a public URL.
-2. In the Supabase dashboard, open Database → Extensions and enable `pg_cron` and `pg_net`.
-3. Open the SQL editor and paste `005_scheduler_cron.sql`, replacing the two placeholder values in the `insert` statement with your deployed URL (no trailing slash) and the exact `CRON_SECRET` from your Vercel environment.
-4. Run it, then run [006_scheduler_every_minute.sql](./supabase/migrations/006_scheduler_every_minute.sql), which tightens the process job from every 5 minutes to every minute.
-5. Verify with `select jobname, schedule, active from cron.job;`.
-
-Reminders are placed on the next run of the process job, so a dose is called within about a minute of its scheduled time. The dashboard, call history, and alerts pages refresh themselves every 20 seconds while open, so outcomes appear without a manual reload.
-
-The secret lives in `private.cron_config`, a schema that is never exposed through the Supabase API, and is sent as an `Authorization: Bearer` header. To rotate it, update that row and the Vercel environment variable together.
-
-Check job history with:
-
-```sql
-select jobname, status, start_time, return_message
-from cron.job_run_details order by start_time desc limit 20;
-
-select id, status_code, error_msg, created
-from net._http_response order by created desc limit 20;
-```
-
-## Caregiver Email Notifications
-
-When an alert is created, the caregiver is emailed immediately via [Resend](https://resend.com) — a critical "parent needs help" alert should never wait for someone to open the dashboard. Set `RESEND_API_KEY` (and optionally `NOTIFY_FROM_EMAIL` and `APP_URL` for the email's dashboard link) to enable it; with no key configured, emails are skipped silently and nothing else changes. Email failures are logged and never break call processing.
-
-## Retry and Alert Rules
-
-- `snoozed`: creates a retry call after `voice_settings.retry_delay_minutes` while `retry_count < voice_settings.max_retries`; after retries are exhausted, creates a high `missed_medicine` alert so an unconfirmed dose is never silently dropped.
-- `no_answer`: creates a retry while `retry_count < voice_settings.max_retries`; after retries are exhausted, creates a medium `no_answer` alert.
-- `missed`: creates a high `missed_medicine` alert.
-- `need_help`: creates a critical `need_help` alert with the parent phone number in the message.
-- `failed` (provider error, low balance, or the call could not be placed): creates a high `call_failed` alert.
-
-Call processing claims each pending log with a conditional `pending -> calling` update, so overlapping cron runs or repeated `process-one` requests cannot dial the same parent twice; already-claimed logs are reported as `skipped`. If the provider request itself throws, the log is finalized as `failed` instead of being stuck in `calling`.
-
-Generated call logs are idempotent. The database migration adds a unique index for the same `caregiver_id`, `parent_id`, `medicine_schedule_id`, and `scheduled_for` when historical data is already clean; the service also checks for an existing log before insert.
-
-## Native-Language Scripts
-
-Call logs store a deterministic medicine reminder script when they are generated. Scripts are rule-based templates, so reminders stay predictable and avoid hallucinated medical advice. The script is passed to the Bolna agent as the `reminder_script` context variable, and the agent is instructed to stick to it.
-
-Supported script languages:
-
-- Telugu
-- Hindi
-- English
-- Tamil
-- Kannada
-
-If a parent or setting has an unsupported language, the script generator falls back to English and logs a warning. If voice settings use `Parent preferred language`, the parent language is used when supported.
-
-Scripts are written in the parent's own writing system — తెలుగు, हिन्दी, தமிழ், ಕನ್ನಡ — never romanized. Indic text-to-speech voices take their rhythm and stress from the native script; fed Latin transliteration such as `vesukunnara` they must guess the pronunciation, which is what makes a call sound robotic. Medicine names stay as the caregiver typed them, because families say brand names in English. The Bolna agent prompt has to enforce the same rule for the lines it improvises — see [docs/bolna-agent-prompt.md](./docs/bolna-agent-prompt.md).
-
-Each generated script:
-
-- Mentions the medicine name.
-- Includes dosage instruction and food timing when available.
-- Uses a respectful relationship address such as Amma, Appa, or Papa ji.
-- Explains keypad options for taken, remind later, and need help.
-- Avoids diagnosis, dosage changes, emotional pressure, and pretending to be the real child.
-
-## Voice and Audio
-
-Speech is handled entirely by the Bolna voice agent: Bolna does ASR, the LLM conversation, and TTS on the live call. There is no separate TTS pipeline in this app anymore.
-
-- Bolna call recordings (when returned by the webhook) are stored in `call_logs.audio_url` and shown as a "Call recording" player on `/dashboard/calls`. Audio is never autoplayed.
-- Call transcripts from Bolna are stored in `call_logs.transcript` and shown on `/dashboard/calls`.
-- No voice cloning is implemented.
-
-## Project Structure
-
-```text
-app/                    App Router pages and layouts
-components/auth/        Auth-related controls
-components/dashboard/   Dashboard UI and page managers
-components/forms/       Auth, parent, and medicine forms
-components/layout/      Sidebar and mobile navigation
-components/ui/          Reusable UI primitives
-lib/call-scripts/       Rule-based native-language call templates
-lib/call-providers/     Simulated and Bolna (Vobiz telephony) call providers
-lib/services/           Supabase query and mutation services
-lib/supabase/           Supabase client, server, and middleware helpers
-lib/database.types.ts   Supabase database types
-lib/types.ts            App-facing TypeScript models
-supabase/migrations/    SQL schema and RLS migrations
-```
-
-## Completed
-
-- Supabase App Router client/server helpers
-- Route protection for `/dashboard/*`
-- Auth redirect handling for logged-in users on `/login` and `/signup`
-- Signup profile creation via database trigger, plus app-side upsert when a session exists
-- Parent CRUD persistence
-- Medicine schedule CRUD persistence with parent display joins
-- Voice settings creation and updates
-- Dashboard cards from real Supabase data
-- Calls and alerts read from Supabase with clean empty states
-- Call Scheduling Engine with safe simulation mode
-- Bolna voice agent outbound calls over Vobiz telephony
-- Bolna webhook for call results, transcripts, and recordings
-- Native-language rule-based call scripts
-- Development controls for generating and processing call logs
-- Alert read/unread handling
-
-## Still Future Work
-
-- Bolna webhook signature verification (currently shared-secret based; the Bolna dashboard only accepts a plain webhook URL)
-- WhatsApp/SMS notification channels alongside email
-- Call recording retention policy
-- Payments
-
-
-## Production safeguards (October 2026)
-
-Apply `supabase/migrations/007_production_safeguards.sql` before deploying the updated application. It makes call creation/results server-only, validates family records, scopes medicine references to their owner, and atomically cancels queued work when family records change. Call claims serialize with parent/medicine changes. The live database has this migration applied.
-
-`FREE_TIER_CALLING=true` is the default. `VERIFIED_CALL_NUMBERS` is server-only JSON mapping caregiver user IDs to arrays of verified E.164 phone numbers, for example `{"caregiver-uuid":["+91verified-number"]}`. Add entries only after verification with the calling account is confirmed. The app never treats saving a phone number as verification. Invalid/missing configuration blocks live calls. Local simulations also accept a comma-separated list of fictional numbers. Set `FREE_TIER_CALLING=false` only after the calling account is upgraded and the product's enrollment/consent policy permits unrestricted recipients.
-
-The Parents screen supports a one-time test call with confirmation. It does not request a real medicine action, does not retry, and permits one request per five-minute account slot. The UI uses `/api/family` for lifecycle changes. Parent deletion removes related history; medicine deletion keeps completed history while removing pending calls. Daily and weekly schedules are supported; weekly uses the weekday of the start date. All scheduling uses India time. Expired queued calls older than 15 minutes are stopped rather than unexpectedly dialed late.
-
-Validation: `npm run lint`, `npm test`, and `npm run build`. `scripts/check-production.mjs` additionally tests two isolated accounts against a local production build on port 3001; it requires local server settings `CALL_PROVIDER=simulated VERIFIED_CALL_NUMBERS=+12025550123 FREE_TIER_CALLING=true RESEND_API_KEY=`. Run it with `node --env-file=.env.local scripts/check-production.mjs`. It uses temporary database accounts, then removes them; it must never target the live website for simulated call placement.
-
-Remaining operational limits: free-tier capacity/uptime, operator-managed number verification, and dashboard-only caregiver alerts. Hourly availability/worker checks and daily encrypted off-site backups with isolated data-restore verification are active in GitHub Actions. Backups are retained for 30 days. See `docs/operations.txt` for recovery instructions and key storage. A full infrastructure failover and sustained load test have not been performed; paid capacity remains a deployment decision before general availability. Successful tests are evidence of the checked paths, not a guarantee of perfect reliability.
-
-Operations migration: `supabase/migrations/008_operations.sql` is applied in production. Its health and recovery RPCs are restricted to the server role. Both anonymous and ordinary authenticated access were tested and rejected.
-
-## Multilingual voice configuration
-
-The live agent and dashboard support Telugu, English, Hindi, Tamil and Kannada. Language and respect mode are applied immediately before dialing, including queued reminders and one-time tests. Each language has speech recognition, voice synthesis, a prompt, silence checks and a goodbye. Conversation-based hangup is enabled with an interruptible farewell.
-
-The reviewed configuration is in `config/bolna-conversation.json`; see [agent configuration and verification](docs/bolna-agent-prompt.md). Run `node --env-file=.env.local scripts/configure-voice-agent.mjs` for a read-only audit. Configuration checks and simulations do not certify native-speaker pronunciation or real telephone interruption/hangup timing.
+Open [localhost:3000](http://localhost:3000). Use `CALL_PROVIDER=simulated` for
+local work without real phone calls. `APP_TIMEZONE=Asia/Kolkata` controls reminder
+timing. Keep `.env.local` private; `.env.example` documents all configuration keys.
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the local development server |
+| `npm run lint` | Check source code with the shared ESLint configuration |
+| `npm test` | Run regression tests without placing calls |
+| `npm run build` | Build the app and check types |
+| `npm start` | Serve the production build |
+| `npm run brand:sync` | Copy approved logo masters into `public/brand` |
+
+## Project layout
+
+| Folder | Contents |
+| --- | --- |
+| `app/` | Pages and server API routes |
+| `components/` | Forms, dashboard controls, and shared UI |
+| `lib/` | Call engine, language templates, validation, and Supabase services |
+| `config/` | Reviewed multilingual agent configuration |
+| `supabase/migrations/` | Ordered database schema, security, and scheduler migrations |
+| `scripts/` | Focused verification, agent configuration, branding, and recovery tools |
+| `tests/` | Regression tests |
+| `public/brand/` | Approved assets served by the app |
+| `marketing/brand/` | Approved logo masters and usage notes |
+| `docs/` | Voice configuration and production operations |
+| `.github/workflows/` | Hosted health checks and encrypted backup verification |
+
+`backups/` and `reports/` are private/generated local output and are ignored by
+Git and deployment. Installed dependencies and build output are ignored too.
+
+## Database and deployment
+
+1. Create a Supabase project and enable email/password sign-in.
+2. Apply migrations **001–004** in order from `supabase/migrations/`.
+3. Configure the environment variables in Vercel and deploy the app. There is no
+   separate backend: `app/api/` contains the server routes.
+4. Enable Supabase `pg_cron` and `pg_net`. In migration **005**, replace the
+   placeholder app URL and cron secret before running it.
+5. Apply migrations **006–008** in order. They set minute-level processing,
+   production security safeguards, and restricted operations/recovery functions.
+6. Configure the calling agent and its webhook as described in
+   [the voice guide](docs/bolna-agent-prompt.md). Set `CALL_PROVIDER=bolna` only
+   when the agent, webhook, and recipient verification are ready.
+
+Existing deployments already have these migrations. Do not rerun migrations
+blindly or edit migrations that have already been applied.
+
+All family records are scoped to their caregiver. Only server-side code can
+queue, claim, or finalize calls. The service-role key and cron/webhook secrets
+must remain server-only.
+
+## Calling behavior
+
+The scheduler creates the day's reminders at **00:15 IST**, processes due calls
+**every minute**, and reconciles missing results **every 15 minutes**. Saving a
+medicine also creates any remaining reminders for today. Daily and weekly
+schedules are supported; weekly uses the start date's weekday.
+
+Language and speaking style are loaded just before dialing, including queued
+reminders and one-time tests. A caregiver can override the language or use each
+parent's preference. Formal greetings use the person's name; warm greetings use
+the family relationship. Callers can request another configured language.
+
+The app owns retry count and timing. Paused, changed, deleted, expired, or
+unverified work cannot place a call. Duplicate claims and duplicate callbacks
+are guarded. One-time test calls require confirmation and never retry.
+
+`FREE_TIER_CALLING=true` restricts live calls to the account's verified-number
+allowlist. `VERIFIED_CALL_NUMBERS` is server-only JSON mapping caregiver IDs to
+verified E.164 numbers. Saving a parent's phone number does not verify it.
+
+The webhook waits for the provider's final `completed` result. A
+`call-disconnected` event is intermediate. Confirmations, deferrals, help requests,
+and unanswered calls become call-history outcomes, with retries or dashboard
+alerts where appropriate. Email is optional and remains disabled while
+`RESEND_API_KEY` is empty.
+
+## Operations and verification
+
+- [Production operations and recovery](docs/operations.txt): hourly health
+  checks, daily encrypted backups at 02:17 IST, 30-day backup retention, recovery
+  key storage, and restore procedures.
+- [Voice configuration](docs/bolna-agent-prompt.md): reviewed prompts, language
+  voices, interruption and hangup settings, provider readback, and listening-test
+  limitations.
+- [Brand guide](marketing/brand/README.md): approved assets and synchronization.
+
+The focused integration scripts use temporary accounts and simulated calls:
+`scripts/check-production.mjs` targets a local production server on port 3001;
+`scripts/check-voice-settings.mjs` checks settings persistence and dispatch.
+Their headers and the voice guide describe the required environment. They create
+`reports/` when needed and remove their test accounts afterward.
+
+Real-call listening checks require an authorized recipient. Load testing and
+full infrastructure failover remain deferred. Neither passing automated tests
+nor saved agent settings guarantees perfect speech or uninterrupted service.
+
+## Archived creative work
+
+Historical posters, reels, branding explorations, market research, and the old
+agent brief are preserved outside this application folder in
+`../ParivaarCall-archive-2026-10-28/`. Its README and cleanup manifest record what
+was moved. Approved logo masters remain in this repository.

@@ -1,19 +1,18 @@
-.next
-node_modules
-out
-dist
-.env
-.env.local
-.env*.local
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-.DS_Store
+# Dependencies and generated build output
+node_modules/
+.next/
+out/
+dist/
 tsconfig.tsbuildinfo
-.vercel
+*.log
+
+# Local credentials and tooling
 .env*
+!.env.example
+.vercel/
+.claude/
+.DS_Store
 
+# Private recovery snapshots and generated verification reports
 backups/
-
 reports/

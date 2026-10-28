@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
-import { writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
 const base='http://localhost:3001';
@@ -55,5 +55,6 @@ try{
  const final=await ok(admin.from('call_logs').select('call_status').eq('id',callbackLog.id).single());assert.equal(final.call_status,'need_help');
  const callbackAlerts=await ok(admin.from('alerts').select('id').eq('parent_id',callbackParent.id));assert.equal(callbackAlerts.length,1);checks.push('Duplicate completion callbacks create one help alert and preserve the final outcome');
  const results={date:new Date().toISOString(),checks,createParentMs:created.ms,mode:'Local production build with simulated calls; no real phone calls'};
+ mkdirSync('reports',{recursive:true});
  writeFileSync('reports/production-checks-2026-10-28.json',JSON.stringify(results,null,2));console.log(JSON.stringify(results,null,2));
 }finally{for(const id of ids){await admin.from('call_logs').update({call_status:'failed'}).eq('caregiver_id',id).eq('call_status','calling');const r=await admin.auth.admin.deleteUser(id);if(r.error)console.error('QA cleanup failed:',r.error.message);}}
