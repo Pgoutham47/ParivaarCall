@@ -9,6 +9,7 @@ export type Profile = {
 };
 
 export type Parent = {
+  callingVerified?: boolean;
   id: string;
   caregiverId: string;
   name: string;

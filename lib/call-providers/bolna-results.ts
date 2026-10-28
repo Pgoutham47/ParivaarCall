@@ -20,7 +20,9 @@ export type BolnaExecutionPayload = {
 
 const NO_ANSWER_STATUSES = new Set(["busy", "no-answer", "no_answer", "not-connected", "not_connected", "canceled", "cancelled", "queued_timeout"]);
 const FAILED_STATUSES = new Set(["error", "failed", "balance-low", "balance_low"]);
-const IN_PROGRESS_STATUSES = new Set(["queued", "initiated", "ringing", "in-progress", "in_progress", "ongoing", "started", "calling"]);
+// A disconnected call still has post-call extraction pending. Only the later
+// completed event contains the final outcome and recording.
+const IN_PROGRESS_STATUSES = new Set(["queued", "initiated", "ringing", "in-progress", "in_progress", "ongoing", "started", "calling", "call-disconnected", "call_disconnected"]);
 
 export function isExecutionInProgress(status: string | undefined | null) {
   return IN_PROGRESS_STATUSES.has((status ?? "").toLowerCase());
@@ -35,9 +37,26 @@ function extractedOutcome(payload: BolnaExecutionPayload): string | null {
     return null;
   }
 
-  const raw = extracted.reminder_outcome ?? extracted.outcome ?? extracted.medicine_status;
-
-  return typeof raw === "string" ? raw.trim().toLowerCase() : null;
+  // Current Bolna extractions are grouped by category, with an objective
+  // answer inside the named field. Keep legacy flat fields working too.
+  const readValue = (raw: unknown): string | null => {
+    if (typeof raw === "string") return raw.trim().toLowerCase();
+    if (!raw || typeof raw !== "object") return null;
+    const answer = (raw as Record<string, unknown>).objective;
+    if (typeof answer === "string") return answer.trim().toLowerCase();
+    if (answer && typeof answer === "object" && "value" in answer && typeof answer.value === "string") {
+      return answer.value.trim().toLowerCase();
+    }
+    return null;
+  };
+  const direct = readValue(extracted.reminder_outcome ?? extracted.outcome ?? extracted.medicine_status);
+  if (direct) return direct;
+  for (const category of Object.values(extracted)) {
+    if (!category || typeof category !== "object") continue;
+    const answer = readValue((category as Record<string, unknown>).reminder_outcome);
+    if (answer) return answer;
+  }
+  return null;
 }
 
 const SPEAKER_PATTERN = /(user|human|customer|caller|recipient|parent|assistant|agent|bot|ai|system)\s*:/gi;
@@ -75,8 +94,8 @@ const HELP_KEYWORDS = [
   "సహాయం", "బాగోలేదు", "నొప్పి", "అయిపోయాయి"
 ];
 const TAKEN_KEYWORDS = [
-  "vesukunna", "vesukunnanu", "teesukunna", "theesukunna", "thisukunna", "ayipoyindi", "avunu",
-  "took it", "i took", "have taken", "already taken", "yes",
+  "vesukunna", "vesukunnanu", "teesukunna", "theesukunna", "thisukunna", "ayipoyindi",
+  "took it", "i took", "have taken", "already taken",
   "వేసుకున్నా", "తీసుకున్నా", "అయిపోయింది"
 ];
 const LATER_KEYWORDS = [
@@ -105,12 +124,18 @@ function classifyFromTranscript(transcript: string | null | undefined): string |
     return "help";
   }
 
-  if (TAKEN_KEYWORDS.some((word) => speech.includes(word))) {
-    return "taken";
-  }
-
   if (LATER_KEYWORDS.some((word) => speech.includes(word))) {
     return "later";
+  }
+
+  // A bare "yes" may answer a greeting, and negated statements must never
+  // produce an adherence confirmation when extraction is unavailable.
+  if (/\b(not|never|haven['’]?t|didn['’]?t|don['’]?t)\b/.test(speech) || /వేసుకోలేదు|తీసుకోలేదు/.test(speech)) {
+    return null;
+  }
+
+  if (TAKEN_KEYWORDS.some((word) => speech.includes(word))) {
+    return "taken";
   }
 
   return null;

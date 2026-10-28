@@ -12,6 +12,7 @@ import {
   UsersRound
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 
 const items = [
   { href: "/dashboard", label: "Home", icon: Home },
@@ -28,14 +29,9 @@ export function SidebarNav() {
 
   return (
     <aside className="fixed inset-y-0 left-0 hidden w-72 border-r border-sage-100 bg-white/85 px-5 py-6 backdrop-blur lg:block">
-      <Link href="/" className="focus-ring flex items-center gap-3 rounded-lg">
-        <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-sage-700 text-lg font-bold text-white">
-          PC
-        </div>
-        <div>
-          <p className="text-base font-bold text-care-ink">Parivaar Call</p>
-          <p className="text-xs text-sage-600">Family medicine care</p>
-        </div>
+      <Link href="/" className="focus-ring block rounded-lg">
+        <BrandLogo className="w-full sm:w-full" priority />
+        <p className="mt-1 text-center text-xs text-sage-600">Family medicine care</p>
       </Link>
 
       <nav className="mt-8 space-y-1">

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AlertTriangle, CircleAlert, PhoneMissed, PhoneOff } from "lucide-react";
 import { AutoRefresh } from "@/components/dashboard/AutoRefresh";
 import { PageHeader } from "@/components/dashboard/PageHeader";
@@ -29,11 +30,14 @@ const alertSurface: Record<AlertSeverity, string> = {
   critical: "border-rose-200 bg-rose-100/70"
 };
 
-export default async function AlertsPage() {
+export default async function AlertsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+  const params = await searchParams;
+  const page = Math.max(1, Math.min(10000, Math.floor(Number(params.page) || 1)));
   const supabase = await createClient();
 
   try {
-    const alerts = await listAlerts(supabase);
+    const rows = await listAlerts(supabase, page);
+    const alerts = rows.slice(0, 25);
 
     return (
       <div className="space-y-6">
@@ -75,6 +79,11 @@ export default async function AlertsPage() {
             })
           )}
         </section>
+        <nav aria-label="History pages" className="flex items-center gap-4 text-sm font-semibold">
+          {page > 1 ? <Link href={`/dashboard/alerts?page=${page - 1}`}>Newer results</Link> : null}
+          <span>Page {page}</span>
+          {rows.length > 25 ? <Link href={`/dashboard/alerts?page=${page + 1}`}>Older results</Link> : null}
+        </nav>
       </div>
     );
   } catch (error) {

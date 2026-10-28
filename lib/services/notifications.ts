@@ -25,18 +25,22 @@ const severityColor: Record<string, string> = {
 
 function alertEmailHtml(input: AlertEmailInput, dashboardUrl: string | null) {
   const color = severityColor[input.severity] ?? "#334155";
+  const brand = dashboardUrl
+    ? `<img src="${dashboardUrl.replace(/\/$/, "")}/brand/parivaarcall-logo.png" alt="ParivaarCall" width="240" height="80" style="display:block;width:240px;max-width:100%;height:auto;margin:0 0 24px;" />`
+    : `<p style="margin:0 0 24px;font-family:Georgia,serif;font-size:28px;color:#3d5644;">ParivaarCall</p>`;
   const link = dashboardUrl
     ? `<p style="margin:24px 0 0;"><a href="${dashboardUrl}/dashboard/alerts" style="color:#166534;font-weight:600;">Open the alerts dashboard</a></p>`
     : "";
 
   return `
   <div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1f2937;">
+    ${brand}
     <p style="margin:0;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${color};font-weight:700;">${input.severity} alert</p>
     <h1 style="margin:8px 0 0;font-size:22px;color:#111827;">${input.title}</h1>
     <p style="margin:16px 0 0;font-size:15px;line-height:1.6;">${input.message ?? ""}</p>
     <p style="margin:16px 0 0;font-size:14px;color:#4b5563;">Parent: <strong>${input.parentName}</strong></p>
     ${link}
-    <p style="margin:32px 0 0;font-size:12px;color:#9ca3af;">Sent by Parivaar Call because a reminder call needed your attention.</p>
+    <p style="margin:32px 0 0;font-size:12px;color:#9ca3af;">Sent by ParivaarCall because a reminder call needed your attention.</p>
   </div>`;
 }
 
@@ -64,7 +68,7 @@ export async function sendAlertEmail(input: AlertEmailInput): Promise<Notificati
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        from: process.env.NOTIFY_FROM_EMAIL ?? "Parivaar Call <onboarding@resend.dev>",
+        from: process.env.NOTIFY_FROM_EMAIL ?? "ParivaarCall <onboarding@resend.dev>",
         to: [email],
         subject: `[${input.severity.toUpperCase()}] ${input.title} — ${input.parentName}`,
         html: alertEmailHtml(input, process.env.APP_URL ?? null)

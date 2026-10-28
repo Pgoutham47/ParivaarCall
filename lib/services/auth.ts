@@ -15,19 +15,6 @@ export async function getCurrentUserId(supabase: SupabaseClient<Database>) {
     throw new Error("You must be logged in to continue.");
   }
 
-  const { error: profileError } = await supabase.from("profiles").upsert(
-    {
-      id: user.id,
-      full_name: typeof user.user_metadata.full_name === "string" ? user.user_metadata.full_name : null,
-      phone: typeof user.user_metadata.phone === "string" ? user.user_metadata.phone : null
-    },
-    { onConflict: "id", ignoreDuplicates: true }
-  );
-
-  if (profileError) {
-    throw new Error(profileError.message);
-  }
-
   return user.id;
 }
 

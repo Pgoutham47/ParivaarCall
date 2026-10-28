@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { PhoneCall } from "lucide-react";
 import { AutoRefresh } from "@/components/dashboard/AutoRefresh";
 import { PageHeader } from "@/components/dashboard/PageHeader";
@@ -21,11 +22,14 @@ const statusTone: Record<CallStatus, "green" | "amber" | "red" | "blue" | "neutr
   failed: "red"
 };
 
-export default async function CallsPage() {
+export default async function CallsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+  const params = await searchParams;
+  const page = Math.max(1, Math.min(10000, Math.floor(Number(params.page) || 1)));
   const supabase = await createClient();
 
   try {
-    const callLogs = await listCallLogs(supabase);
+    const rows = await listCallLogs(supabase, page);
+    const callLogs = rows.slice(0, 25);
 
     return (
       <div className="space-y-6">
@@ -43,7 +47,7 @@ export default async function CallsPage() {
           {callLogs.length === 0 ? (
             <Card>
               <p className="text-base font-semibold text-care-ink">No call logs yet</p>
-              <p className="mt-2 text-sm leading-6 text-sage-700">Once telephony is connected, scheduled call attempts and responses will appear here.</p>
+              <p className="mt-2 text-sm leading-6 text-sage-700">Add a medicine reminder or make a test call from the Parents page. Results will appear here.</p>
             </Card>
           ) : (
             callLogs.map((call) => (
@@ -64,7 +68,7 @@ export default async function CallsPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <StatusBadge label={call.scriptText ? "script generated" : "script missing"} tone={call.scriptText ? "green" : "amber"} />
                       <StatusBadge label={call.scriptLanguage} tone="blue" />
-                      <StatusBadge label={call.callProvider ?? "no provider yet"} tone={call.callProvider ? "green" : "neutral"} />
+
                     </div>
                     <p className="mt-3 text-sm leading-6 text-sage-700">{call.shortPreviewText}</p>
                     <div className="mt-3 flex flex-wrap gap-2">
@@ -92,7 +96,7 @@ export default async function CallsPage() {
                     ) : null}
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-sage-600">
-                    <span>Response: {call.responseType ?? "none"}</span>
+
                     <span>Created: {call.createdAt}</span>
                   </div>
                   {process.env.NODE_ENV !== "production" ? <CallSimulationActions callLogId={call.id} /> : null}
@@ -105,6 +109,11 @@ export default async function CallsPage() {
             ))
           )}
         </section>
+        <nav aria-label="History pages" className="flex items-center gap-4 text-sm font-semibold">
+          {page > 1 ? <Link href={`/dashboard/calls?page=${page - 1}`}>Newer results</Link> : null}
+          <span>Page {page}</span>
+          {rows.length > 25 ? <Link href={`/dashboard/calls?page=${page + 1}`}>Older results</Link> : null}
+        </nav>
       </div>
     );
   } catch (error) {

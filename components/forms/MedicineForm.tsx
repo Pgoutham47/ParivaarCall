@@ -1,5 +1,6 @@
 "use client";
 
+import { localDateKey } from "@/lib/services/timezone";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, SelectInput, TextInput } from "@/components/ui/Field";
@@ -14,7 +15,7 @@ function makeInitialForm(parents: Parent[], schedule?: MedicineSchedule) {
     mealTiming: schedule?.mealTiming ?? "after_food",
     frequency: schedule?.frequency ?? "daily",
     importanceLevel: schedule?.importanceLevel ?? "routine",
-    startDate: schedule?.startDate ?? "",
+    startDate: schedule?.startDate ?? localDateKey(),
     endDate: schedule?.endDate ?? ""
   };
 }
@@ -54,16 +55,16 @@ export function MedicineForm({
       mealTiming: form.mealTiming as MedicineSchedule["mealTiming"],
       frequency: form.frequency as MedicineSchedule["frequency"],
       importanceLevel: form.importanceLevel as MedicineSchedule["importanceLevel"],
-      startDate: form.startDate || new Date().toISOString().slice(0, 10),
+      startDate: form.startDate || localDateKey(),
       endDate: form.endDate || null,
       isActive: schedule?.isActive ?? true
     });
 
-    setForm(makeInitialForm(parents));
+
   }
 
   return (
-    <form className="grid gap-4 md:grid-cols-2">
+    <form className="grid gap-4 md:grid-cols-2" onSubmit={(event) => { event.preventDefault(); handleSave(); }}>
       <Field label="Select parent">
         <SelectInput value={form.parentId} onChange={(event) => updateField("parentId", event.target.value)} disabled={parents.length === 0}>
           {parents.map((parent) => (
@@ -74,13 +75,13 @@ export function MedicineForm({
         </SelectInput>
       </Field>
       <Field label="Medicine name">
-        <TextInput value={form.medicineName} onChange={(event) => updateField("medicineName", event.target.value)} placeholder="Metformin" />
+        <TextInput required maxLength={150} value={form.medicineName} onChange={(event) => updateField("medicineName", event.target.value)} placeholder="Metformin" />
       </Field>
       <Field label="Dosage instruction">
-        <TextInput value={form.dosageInstruction} onChange={(event) => updateField("dosageInstruction", event.target.value)} placeholder="1 tablet with water" />
+        <TextInput maxLength={500} value={form.dosageInstruction} onChange={(event) => updateField("dosageInstruction", event.target.value)} placeholder="1 tablet with water" />
       </Field>
-      <Field label="Time">
-        <TextInput type="time" value={form.time} onChange={(event) => updateField("time", event.target.value)} />
+      <Field label="Time (India / IST)">
+        <TextInput required type="time" value={form.time} onChange={(event) => updateField("time", event.target.value)} />
       </Field>
       <Field label="Before food / after food">
         <SelectInput value={form.mealTiming} onChange={(event) => updateField("mealTiming", event.target.value)}>
@@ -92,14 +93,15 @@ export function MedicineForm({
         <SelectInput value={form.frequency} onChange={(event) => updateField("frequency", event.target.value)}>
           <option value="daily">Daily</option>
           <option value="weekly">Weekly</option>
-          <option value="custom">Custom</option>
+
         </SelectInput>
       </Field>
+      <p className="text-sm text-sage-700 md:col-span-2">Weekly reminders repeat on the weekday of the start date. Calls usually begin within one minute of the scheduled time. If today’s time has passed, the reminder starts on its next eligible day.</p>
       <Field label="Start date">
-        <TextInput type="date" value={form.startDate} onChange={(event) => updateField("startDate", event.target.value)} />
+        <TextInput required type="date" value={form.startDate} onChange={(event) => updateField("startDate", event.target.value)} />
       </Field>
       <Field label="End date optional">
-        <TextInput type="date" value={form.endDate} onChange={(event) => updateField("endDate", event.target.value)} />
+        <TextInput type="date" min={form.startDate} value={form.endDate} onChange={(event) => updateField("endDate", event.target.value)} />
       </Field>
       <label className="flex min-h-12 items-center justify-between rounded-lg border border-sage-200 bg-white px-3 py-2 md:col-span-2">
         <span>
@@ -114,7 +116,7 @@ export function MedicineForm({
         />
       </label>
       <div className="flex gap-3 md:col-span-2">
-        <Button type="button" onClick={handleSave} disabled={isSaving || parents.length === 0}>
+        <Button type="submit" disabled={isSaving || parents.length === 0}>
           {isSaving ? "Saving..." : schedule ? "Update Medicine" : "Save Medicine"}
         </Button>
         <Button type="button" variant="secondary" onClick={onCancel} disabled={isSaving}>

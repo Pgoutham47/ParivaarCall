@@ -1,0 +1,39 @@
+ParivaarCall production operations
+
+GitHub Actions: .github/workflows/production-operations.yml
+Health: hourly at minute 17. Daily encrypted backup and isolated restore: 02:17 IST.
+Manual run: gh workflow run production-operations.yml -f backup=true
+Results: https://github.com/Pgoutham47/ParivaarCall/actions/workflows/production-operations.yml
+Health reports retained 14 days; encrypted backups retained 30 days.
+GitHub scheduled runs can be delayed. Check the latest successful backup before relying on the 24-hour recovery-point target. This is not point-in-time recovery.
+
+Health checks test public page availability, protected-route authentication, database connectivity, all three reminder schedules, a worker success within five minutes, overdue reminders, stalled calls and recent worker HTTP failures. The check never initiates a call. Application alerts remain in the caregiver dashboard.
+
+Backup format: AES-256-GCM, fresh random nonce per backup, authentication tag.
+Data: profiles, parents, medicine schedules, voice settings, call history, alerts, authentication users and identities, scheduler configuration. Includes application migration source and recovery configuration, encrypted together. Sessions are omitted; users must sign in again. External call recordings, email-provider account configuration and hosting settings are not copied. This is an application-data recovery backup, not a full managed-platform image.
+
+Repository secrets:
+OPS_DATABASE_URL, OPS_DATABASE_SERVICE_KEY, OPS_BACKUP_ENCRYPTION_KEY,
+OPS_RECOVERY_CONFIGURATION. Never print or put these values into source control.
+The independent recovery key is saved outside the repository in:
+~/Library/Application Support/ParivaarCall/recovery-key.env
+Keep a separate secure offline copy of this file: GitHub secrets cannot be read back. Losing every copy of the key makes backups unrecoverable. Rotate keys only while keeping old keys for retained backups.
+
+Verify a downloaded backup locally:
+1. Install PostgreSQL 17 command-line utilities and Node 22 or later.
+2. Put the encrypted JSON file in backups/ (ignored by Git).
+3. Run: node --env-file="$HOME/Library/Application Support/ParivaarCall/recovery-key.env" scripts/operations/local-drill.mjs
+This creates a temporary PostgreSQL instance accessible only through a private local socket, restores every table, compares every value, checks account relationships, prevents replaying pending calls, stops PostgreSQL and removes the temporary database.
+
+The hosted workflow runs the same data verification in a fresh PostgreSQL service container. It verifies data recovery, not a complete hosted authentication/application failover.
+
+Disaster recovery procedure:
+1. Disable live call processing and scheduler jobs before changing any production database. Preserve the failed database for diagnosis. Choose a known-good encrypted backup and matching key.
+2. Run the isolated recovery drill. Do not point the verifier at a live database: it refuses non-empty targets. Save and inspect the drill result.
+3. Provision a fresh Supabase project, with application schedulers disabled. Apply the bundled application migrations. Do NOT run the placeholder configuration insert in migration 005 unchanged. Match the managed authentication schema version before importing auth.users and auth.identities.
+4. Decrypt in a protected environment using scripts/operations/backup.mjs decrypt(). Import users, identities, profiles, parents, schedules, voice settings, call logs and alerts in dependency order. Managed generated columns must be omitted; resolve profile trigger conflicts with reviewed upserts. Reapply permissions and RLS from the bundled migrations. Do not overwrite platform auth/session tables from another platform version.
+5. Mark pending/calling reminder rows failed and review schedules before enabling any calls. Reconfigure project URLs, API keys, webhook credentials and scheduler secrets for the new environment. Do not use the old endpoint from the backup without review.
+6. Validate login, account isolation, CRUD, dashboard alerts, the verified-number restriction and simulated call processing. Compare record counts and values. Only then switch production to the recovered project and enable the scheduler.
+A full cross-project failover and its recovery-time objective still need a separate staging project and operator execution; the daily drill proves the encrypted data can be restored.
+
+The website and database run in Tokyo. Free-tier verified-number restrictions remain visible. Free services do not provide a guaranteed uptime SLA; upgrading and independent multi-region failover require a separate deployment decision.

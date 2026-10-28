@@ -1,4 +1,5 @@
 import type { CallJob, CallPlacement, CallProvider } from "@/lib/types";
+import { normalizePhoneNumber } from "@/lib/phone";
 
 const DEFAULT_BOLNA_API_URL = "https://api.bolna.ai";
 
@@ -11,7 +12,7 @@ type BolnaCallResponse = {
 };
 
 // Places a real outbound call: the Bolna voice agent (ASR + LLM + TTS) speaks
-// to the parent over the Vobiz telephony line connected in the Bolna dashboard.
+// to the parent over Bolna's default or connected telephony line.
 // The final outcome arrives asynchronously on /api/webhooks/bolna.
 export function createBolnaCallProvider(): CallProvider {
   return {
@@ -25,19 +26,20 @@ export function createBolnaCallProvider(): CallProvider {
       }
 
       const apiUrl = process.env.BOLNA_API_URL ?? DEFAULT_BOLNA_API_URL;
-      // The Vobiz phone number connected to Bolna (Bolna dashboard -> Providers -> Vobiz).
+      // Optional owned number; omit to use Bolna's default calling line.
       const fromPhoneNumber = process.env.BOLNA_FROM_PHONE_NUMBER;
 
       const response = await fetch(`${apiUrl}/call`, {
         method: "POST",
+        signal: AbortSignal.timeout(15000),
         headers: {
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
           agent_id: agentId,
-          recipient_phone_number: job.parent.phone,
-          ...(fromPhoneNumber ? { from_phone_number: fromPhoneNumber } : {}),
+          recipient_phone_number: normalizePhoneNumber(job.parent.phone),
+          ...(fromPhoneNumber ? { from_phone_number: normalizePhoneNumber(fromPhoneNumber) } : {}),
           user_data: {
             call_log_id: job.callLog.id,
             parent_name: job.parent.name,
@@ -67,7 +69,7 @@ export function createBolnaCallProvider(): CallProvider {
         kind: "initiated",
         provider: "bolna",
         providerCallId: String(providerCallId),
-        notes: "Bolna voice agent call placed via Vobiz. Awaiting webhook result."
+        notes: "Call requested. Waiting for the conversation to finish."
       };
     }
   };

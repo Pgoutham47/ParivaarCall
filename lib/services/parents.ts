@@ -2,10 +2,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import type { Parent, ParentInput, ParentStatus } from "@/lib/types";
 import { getCurrentUserId } from "@/lib/services/auth";
+import { validateParent } from "@/lib/validation";
+import { normalizePhoneNumber } from "@/lib/phone";
 
 type ParentRow = Database["public"]["Tables"]["parents"]["Row"];
 
-function mapParent(row: ParentRow): Parent {
+export function mapParent(row: ParentRow): Parent {
   return {
     id: row.id,
     caregiverId: row.caregiver_id,
@@ -24,16 +26,17 @@ function mapParent(row: ParentRow): Parent {
 }
 
 function toParentPayload(input: ParentInput, caregiverId: string) {
+  validateParent(input);
   return {
     caregiver_id: caregiverId,
     name: input.name.trim(),
     relationship: input.relationship,
-    phone: input.phoneNumber.trim(),
+    phone: normalizePhoneNumber(input.phoneNumber),
     age: input.age,
     language: input.preferredLanguage,
     city: input.city,
     emergency_contact_name: input.emergencyContactName,
-    emergency_contact_phone: input.emergencyContactPhone,
+    emergency_contact_phone: input.emergencyContactPhone?.trim() ? normalizePhoneNumber(input.emergencyContactPhone) : null,
     status: input.status ?? "active"
   };
 }
@@ -48,8 +51,8 @@ export async function listParents(supabase: SupabaseClient<Database>) {
   return (data ?? []).map(mapParent);
 }
 
-export async function createParent(supabase: SupabaseClient<Database>, input: ParentInput) {
-  const caregiverId = await getCurrentUserId(supabase);
+export async function createParent(supabase: SupabaseClient<Database>, input: ParentInput, userId?: string) {
+  const caregiverId = userId ?? await getCurrentUserId(supabase);
   const { data, error } = await supabase
     .from("parents")
     .insert(toParentPayload(input, caregiverId))
@@ -63,8 +66,8 @@ export async function createParent(supabase: SupabaseClient<Database>, input: Pa
   return mapParent(data);
 }
 
-export async function updateParent(supabase: SupabaseClient<Database>, id: string, input: ParentInput) {
-  const caregiverId = await getCurrentUserId(supabase);
+export async function updateParent(supabase: SupabaseClient<Database>, id: string, input: ParentInput, userId?: string) {
+  const caregiverId = userId ?? await getCurrentUserId(supabase);
   const { data, error } = await supabase
     .from("parents")
     .update(toParentPayload(input, caregiverId))

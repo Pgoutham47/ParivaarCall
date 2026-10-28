@@ -9,8 +9,12 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Parivaar Call",
-  description: "Medicine reminder calls for elderly parents, managed by their family."
+  title: "ParivaarCall",
+  description: "Medicine reminder calls for elderly parents, managed by their family.",
+  icons: {
+    icon: "/brand/parivaarcall-icon.png",
+    apple: "/brand/parivaarcall-icon.png"
+  }
 };
 
 export default function RootLayout({

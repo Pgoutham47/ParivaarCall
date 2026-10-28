@@ -1,6 +1,10 @@
-# Parivaar Call
+# ParivaarCall
 
-Parivaar Call is an MVP caregiver web app where children can manage medicine reminder schedules for elderly parents. Parents do not use an app. The app uses Supabase for authentication, caregiver profiles, parents, medicines, call logs, alerts, and voice settings. Reminder calls are made by a Bolna voice agent over Vobiz telephony.
+ParivaarCall is an MVP caregiver web app where children can manage medicine reminder schedules for elderly parents. Parents do not use an app. The app uses Supabase for authentication, caregiver profiles, parents, medicines, call logs, alerts, and voice settings. Reminder calls are made by a Bolna voice agent using its default calling line or a connected telephony provider.
+
+## Brand assets
+
+The approved identity is **The Embrace icon with the soft-serif wordmark (option B)**. Use `public/brand/parivaarcall-logo.png` for the full logo and `public/brand/parivaarcall-icon.png` for the symbol. App screens share `components/ui/BrandLogo.tsx`. Master files, approved usage, and archived concepts live in [marketing/brand](marketing/brand/README.md).
 
 ## Tech Stack
 
@@ -10,7 +14,7 @@ Parivaar Call is an MVP caregiver web app where children can manage medicine rem
 - Supabase Auth
 - Supabase Postgres with Row Level Security
 - [Bolna](https://bolna.ai) voice AI agent (ASR + LLM + TTS, Indian languages) for the reminder conversations
-- [Vobiz](https://vobiz.ai) programmable telephony (India-focused, TRAI-compliant) as the calling line connected through Bolna
+- Bolna's default calling line, or a connected provider such as [Vobiz](https://vobiz.ai)
 
 ## Local Setup
 
@@ -21,6 +25,8 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+Run `npm test` for the phone-number, call-outcome, webhook-status, analytics, and timezone regression checks. These tests do not place calls. `npm run build` checks the production build, types, and lint rules.
 
 ## Environment Variables
 
@@ -44,17 +50,17 @@ BOLNA_WEBHOOK_SECRET=
 
 `APP_TIMEZONE` (default `Asia/Kolkata`) is the IANA timezone all call scheduling uses. Medicine times entered by caregivers are interpreted in this zone regardless of the server's clock, so deployments on UTC hosts such as Vercel still call at the parent's local time.
 
-## Bolna + Vobiz Setup
+## Bolna Calling Setup
 
-1. Create a [Vobiz](https://vobiz.ai) account and copy the Auth Token and Auth Secret from Vobiz Console → Settings → API Keys.
-2. Create a [Bolna](https://bolna.ai) account and connect Vobiz in Bolna → Providers using those credentials (status should show Connected).
-3. Buy or provision a Vobiz phone number inside the Bolna platform and set it as `BOLNA_FROM_PHONE_NUMBER`.
+1. Create a [Bolna](https://bolna.ai) account and ensure it has calling credit.
+2. Use Bolna's default line, or connect your telephony provider in Bolna's provider settings.
+3. Leave `BOLNA_FROM_PHONE_NUMBER` empty for the default line. Only set it when the number belongs to your account and its provider is connected. Parent phone numbers are normalized to international format; 10-digit Indian mobile numbers automatically receive `+91`.
 4. Create a Bolna voice agent for medicine reminders:
    - Prompt it to read the reminder using the `reminder_script` context variable and speak in `script_language`.
-   - Configure post-call data extraction with a field named `reminder_outcome` whose value is one of `taken`, `later`, `help`, or `no_response`.
+   - Configure post-call extraction in the `ParivaarCall` category with a field named `reminder_outcome` whose objective value is one of `taken`, `later`, `help`, or `no_response`. Both current category-based and legacy flat extractions are supported.
    - Set the agent's webhook URL to `https://your-domain/api/webhooks/bolna?secret=<BOLNA_WEBHOOK_SECRET>`.
 5. Copy the Bolna API key and agent id into `BOLNA_API_KEY` and `BOLNA_AGENT_ID`.
-6. Set `CALL_PROVIDER=bolna`.
+6. Set `CALL_PROVIDER=bolna`. Verify the agent ID exists for the API key before deploying. The app waits for the final `completed` event; `call-disconnected` still has extraction pending and must not finalize a dose.
 
 The app passes these context variables with every call: `call_log_id`, `parent_name`, `medicine_name`, `dosage_instruction`, `scheduled_time`, `script_language`, `reminder_script`, and `retry_count`.
 
@@ -331,3 +337,16 @@ supabase/migrations/    SQL schema and RLS migrations
 - Call recording retention policy
 - Payments
 - Production validation and automated tests
+
+
+## Production safeguards (October 2026)
+
+Apply `supabase/migrations/006_production_safeguards.sql` before deploying the updated application. It makes call creation/results server-only, validates family records, scopes medicine references to their owner, and atomically cancels queued work when family records change. Call claims serialize with parent/medicine changes. The live database has this migration applied.
+
+`FREE_TIER_CALLING=true` is the default. `VERIFIED_CALL_NUMBERS` is server-only JSON mapping caregiver user IDs to arrays of verified E.164 phone numbers, for example `{"caregiver-uuid":["+91verified-number"]}`. Add entries only after verification with the calling account is confirmed. The app never treats saving a phone number as verification. Invalid/missing configuration blocks live calls. Local simulations also accept a comma-separated list of fictional numbers. Set `FREE_TIER_CALLING=false` only after the calling account is upgraded and the product's enrollment/consent policy permits unrestricted recipients.
+
+The Parents screen supports a one-time test call with confirmation. It does not request a real medicine action, does not retry, and permits one request per five-minute account slot. The UI uses `/api/family` for lifecycle changes. Parent deletion removes related history; medicine deletion keeps completed history while removing pending calls. Daily and weekly schedules are supported; weekly uses the weekday of the start date. All scheduling uses India time. Expired queued calls older than 15 minutes are stopped rather than unexpectedly dialed late.
+
+Validation: `npm run lint`, `npm test`, and `npm run build`. `scripts/check-production.mjs` additionally tests two isolated accounts against a local production build on port 3001; it requires local server settings `CALL_PROVIDER=simulated VERIFIED_CALL_NUMBERS=+12025550123 FREE_TIER_CALLING=true RESEND_API_KEY=`. Run it with `node --env-file=.env.local scripts/check-production.mjs`. It uses temporary database accounts, then removes them; it must never target the live website for simulated call placement.
+
+Remaining operational limits: free-tier capacity/uptime, operator-managed number verification, and dashboard-only caregiver alerts. Paid capacity, off-site backups with a tested restore process, and sustained production load/availability monitoring must be established before treating this as a general-availability health service. Successful tests are evidence of the checked paths, not a guarantee of perfect reliability.

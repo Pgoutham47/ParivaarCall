@@ -1,5 +1,7 @@
+import { callDescription } from "@/lib/call-display";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getLanguageTemplate } from "@/lib/call-scripts";
+import { APP_TIMEZONE } from "@/lib/services/timezone";
 import type { Database } from "@/lib/database.types";
 import type { Alert, AlertSeverity, AlertType, AudioStatus, CallLog, CallStatus, ResponseType } from "@/lib/types";
 
@@ -17,6 +19,7 @@ function formatTime(value: string | null) {
   }
 
   return new Intl.DateTimeFormat("en-IN", {
+    timeZone: APP_TIMEZONE,
     hour: "numeric",
     minute: "2-digit",
     hour12: true
@@ -25,6 +28,7 @@ function formatTime(value: string | null) {
 
 function formatCreatedAt(value: string) {
   return new Intl.DateTimeFormat("en-IN", {
+    timeZone: APP_TIMEZONE,
     dateStyle: "medium",
     timeStyle: "short"
   }).format(new Date(value));
@@ -37,10 +41,10 @@ function mapCallLog(row: CallLogRow): CallLog {
   return {
     id: row.id,
     parentName: row.parents?.name ?? "Unknown parent",
-    medicine: row.medicine_schedules?.medicine_name ?? "Medicine reminder",
+    medicine: row.medicine_schedules?.medicine_name ?? "Test call / removed medicine",
     scheduledTime: formatTime(row.scheduled_for),
     status: (row.call_status ?? "pending") as CallStatus,
-    response: row.notes ?? row.response_type ?? "No response recorded yet.",
+    response: callDescription(row.call_status, row.notes),
     responseType: row.response_type as ResponseType | null,
     retryCount: row.retry_count,
     createdAt: formatCreatedAt(row.created_at),
@@ -71,11 +75,13 @@ function mapAlert(row: AlertRow): Alert {
   };
 }
 
-export async function listCallLogs(supabase: SupabaseClient<Database>) {
-  const { data, error } = await supabase
+export async function listCallLogs(supabase: SupabaseClient<Database>, page?: number) {
+  let query = supabase
     .from("call_logs")
     .select("*, parents(name), medicine_schedules(medicine_name)")
     .order("created_at", { ascending: false });
+  if (page !== undefined) query = query.range((page - 1) * 25, (page - 1) * 25 + 25);
+  const { data, error } = await query;
 
   if (error) {
     throw new Error(error.message);
@@ -84,11 +90,13 @@ export async function listCallLogs(supabase: SupabaseClient<Database>) {
   return ((data ?? []) as CallLogRow[]).map(mapCallLog);
 }
 
-export async function listAlerts(supabase: SupabaseClient<Database>) {
-  const { data, error } = await supabase
+export async function listAlerts(supabase: SupabaseClient<Database>, page?: number) {
+  let query = supabase
     .from("alerts")
     .select("*, parents(name)")
     .order("created_at", { ascending: false });
+  if (page !== undefined) query = query.range((page - 1) * 25, (page - 1) * 25 + 25);
+  const { data, error } = await query;
 
   if (error) {
     throw new Error(error.message);

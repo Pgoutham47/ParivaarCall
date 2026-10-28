@@ -94,7 +94,7 @@ export function SettingsManager({
             </Field>
           </div>
           <p className="mt-4 text-sm leading-6 text-sage-700">
-            The language decides which script is written and which language the voice agent speaks. Respect mode changes how the parent is addressed. Voice, speed, and tone are configured on the Bolna agent.
+            The language decides which script is written and which language the voice agent speaks. Respect mode changes how the parent is addressed. Calls use a preset, clear speaking voice.
           </p>
         </Card>
 
@@ -118,6 +118,7 @@ export function SettingsManager({
                 type="number"
                 value={settings.retryGapMinutes}
                 min={5}
+                max={120}
                 onChange={(event) => updateField("retryGapMinutes", Number(event.target.value))}
               />
             </Field>

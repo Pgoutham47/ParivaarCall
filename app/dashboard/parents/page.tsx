@@ -1,3 +1,4 @@
+import { canCallNumber } from "@/lib/calling-access";
 import { ParentsManager } from "@/components/dashboard/ParentsManager";
 import { listParents } from "@/lib/services/parents";
 import { createClient } from "@/lib/supabase/server";
@@ -7,7 +8,7 @@ export default async function ParentsPage() {
 
   try {
     const parents = await listParents(supabase);
-    return <ParentsManager initialParents={parents} />;
+    return <ParentsManager initialParents={parents.map(parent => ({ ...parent, callingVerified: canCallNumber(parent.phoneNumber, parent.caregiverId) }))} />;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not load parents.";
     return <ParentsManager initialParents={[]} initialError={message} />;

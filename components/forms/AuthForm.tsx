@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 import { Card } from "@/components/ui/Card";
 import { Field, TextInput } from "@/components/ui/Field";
 import { upsertProfile } from "@/lib/services/auth";
@@ -77,8 +78,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     <main className="flex min-h-screen items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
         <Link href="/" className="focus-ring mx-auto flex w-fit items-center gap-3 rounded-lg">
-          <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-sage-700 font-bold text-white">PC</span>
-          <span className="text-lg font-bold text-care-ink">Parivaar Call</span>
+          <BrandLogo priority />
         </Link>
 
         <Card className="mt-8">
@@ -133,7 +133,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           </form>
 
           <p className="mt-6 text-center text-sm text-sage-700">
-            {isSignup ? "Already have an account? " : "New to Parivaar Call? "}
+            {isSignup ? "Already have an account? " : "New to ParivaarCall? "}
             <Link className="font-semibold text-sage-800 underline-offset-4 hover:underline" href={isSignup ? "/login" : "/signup"}>
               {isSignup ? "Log in" : "Sign up"}
             </Link>

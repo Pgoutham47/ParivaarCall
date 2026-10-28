@@ -14,17 +14,16 @@ export function MarkAlertReadButton({ alertId }: { alertId: string }) {
     setIsSaving(true);
     setError(null);
 
-    const response = await fetch(`/api/alerts/${alertId}/read`, { method: "POST" });
-    const payload = (await response.json().catch(() => ({}))) as { error?: string };
-
-    if (!response.ok) {
+    try {
+      const response = await fetch(`/api/alerts/${alertId}/read`, { method: "POST" });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) throw new Error(payload.error ?? "Could not mark alert read.");
+      router.refresh();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Check your connection and try again.");
+    } finally {
       setIsSaving(false);
-      setError(payload.error ?? "Could not mark alert read.");
-      return;
     }
-
-    setIsSaving(false);
-    router.refresh();
   }
 
   return (
@@ -39,7 +38,7 @@ export function MarkAlertReadButton({ alertId }: { alertId: string }) {
       >
         {isSaving ? "Marking read" : "Mark as read"}
       </Button>
-      {error ? <p className="mt-2 text-sm font-semibold text-rose-700">{error}</p> : null}
+      {error ? <p role="alert" className="mt-2 text-sm font-semibold text-rose-700">{error}</p> : null}
     </div>
   );
 }

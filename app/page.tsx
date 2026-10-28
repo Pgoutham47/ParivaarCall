@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { LinkButton } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 
 const promises = [
   {
@@ -33,8 +34,7 @@ export default function LandingPage() {
     <main>
       <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5 sm:px-6">
         <Link href="/" className="focus-ring flex items-center gap-3 rounded-lg">
-          <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-sage-700 font-bold text-white">PC</span>
-          <span className="text-lg font-bold text-care-ink">Parivaar Call</span>
+          <BrandLogo priority />
         </Link>
         <div className="flex items-center gap-2">
           <Link href="/login" className="focus-ring rounded-lg px-3 py-2 text-sm font-semibold text-sage-800 hover:bg-sage-50">
@@ -55,7 +55,7 @@ export default function LandingPage() {
             A gentle call home, so medicines are not missed.
           </h1>
           <p className="mt-5 max-w-2xl text-base leading-8 text-sage-700 sm:text-lg">
-            Parivaar Call helps children and caregivers create medicine schedules for elderly parents.
+            ParivaarCall helps children and caregivers create medicine schedules for elderly parents.
             Later, the system will call the parent in their native language, confirm the dose, retry missed
             calls, and alert the family when help is needed.
           </p>

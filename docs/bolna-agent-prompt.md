@@ -58,8 +58,11 @@ You are calling an elderly parent on behalf of their child. You are NOT the chil
 
 ## Post-call extraction
 
-Configure a post-call extraction field named `reminder_outcome` whose value is
-one of `taken`, `later`, `help`, or `no_response`.
+Configure a post-call extraction field named `reminder_outcome` in the
+`ParivaarCall` category. Use an objective answer with the options `taken`,
+`later`, `help`, and `no_response`. Distress takes priority; a greeting or
+ambiguous agreement must not count as taking medicine. The application reads
+the current category/objective structure as well as legacy flat fields.
 
 This is not optional. Without it the app falls back to scanning the transcript
 for keywords, and a parent who phrases their answer unusually is recorded as
@@ -90,4 +93,5 @@ https://<your-domain>/api/webhooks/bolna?secret=<BOLNA_WEBHOOK_SECRET>
 Bolna emits events while a call is still ringing or in progress, and can deliver
 the same event twice. The route ignores in-progress events and claims the call
 log before finalizing, so neither case can close a reminder early or duplicate
-an alert.
+an alert. `call-disconnected` is also intermediate: final extraction and the
+recording arrive with the later `completed` event.

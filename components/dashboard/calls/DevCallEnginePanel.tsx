@@ -57,7 +57,7 @@ export function DevCallEnginePanel() {
         <div>
           <p className="text-sm font-bold uppercase tracking-[0.14em] text-sky-800">Development call engine</p>
           <p className="mt-1 text-sm leading-6 text-sage-700">
-            With CALL_PROVIDER=simulated no real calls are placed. With CALL_PROVIDER=bolna, calls dial out through the Bolna voice agent over Vobiz.
+            Development tools: simulations do not place real calls. Live calls require the calling service to be configured.
           </p>
           {state.message ? <p className="mt-2 text-sm font-semibold text-care-ink">{state.message}</p> : null}
         </div>

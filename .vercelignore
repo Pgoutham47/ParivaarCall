@@ -1,0 +1,10 @@
+marketing/
+reports/
+research_notes/
+tests/
+docs/
+.env*
+
+backups/
+
+.github/

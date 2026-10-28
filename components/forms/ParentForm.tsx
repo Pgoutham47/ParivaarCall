@@ -27,7 +27,7 @@ export function ParentForm({
   isSaving = false
 }: {
   parent?: Parent;
-  onSave: (parent: ParentInput) => void;
+  onSave: (parent: ParentInput) => void | Promise<void>;
   onCancel: () => void;
   isSaving?: boolean;
 }) {
@@ -53,14 +53,12 @@ export function ParentForm({
       emergencyContactPhone: form.emergencyContactPhone || null,
       status: parent?.status ?? "active"
     });
-
-    setForm(makeInitialForm());
   }
 
   return (
-    <form className="grid gap-4 md:grid-cols-2">
+    <form className="grid gap-4 md:grid-cols-2" onSubmit={(event) => { event.preventDefault(); handleSave(); }}>
       <Field label="Parent name">
-        <TextInput value={form.name} onChange={(event) => updateField("name", event.target.value)} placeholder="Lakshmi Rao" />
+        <TextInput required maxLength={100} value={form.name} onChange={(event) => updateField("name", event.target.value)} placeholder="Lakshmi Rao" />
       </Field>
       <Field label="Relationship">
         <SelectInput value={form.relationship} onChange={(event) => updateField("relationship", event.target.value)}>
@@ -73,10 +71,11 @@ export function ParentForm({
         </SelectInput>
       </Field>
       <Field label="Phone number">
-        <TextInput value={form.phoneNumber} onChange={(event) => updateField("phoneNumber", event.target.value)} placeholder="+91 98765 43210" />
+        <TextInput required type="tel" autoComplete="tel" value={form.phoneNumber} onChange={(event) => updateField("phoneNumber", event.target.value)} placeholder="+91 98765 43210" />
       </Field>
+      <p className="text-sm text-sage-700 md:col-span-2">Free-tier calling supports only verified numbers. Saving a number does not verify it. Ask your account administrator to arrange verification.</p>
       <Field label="Age">
-        <TextInput type="number" value={form.age} onChange={(event) => updateField("age", event.target.value)} placeholder="72" />
+        <TextInput type="number" min={1} max={120} value={form.age} onChange={(event) => updateField("age", event.target.value)} placeholder="72" />
       </Field>
       <Field label="Preferred language">
         <SelectInput value={form.preferredLanguage} onChange={(event) => updateField("preferredLanguage", event.target.value)}>
@@ -97,10 +96,10 @@ export function ParentForm({
         <TextInput value={form.emergencyContactName} onChange={(event) => updateField("emergencyContactName", event.target.value)} placeholder="Ramesh Rao" />
       </Field>
       <Field label="Emergency contact phone">
-        <TextInput value={form.emergencyContactPhone} onChange={(event) => updateField("emergencyContactPhone", event.target.value)} placeholder="+91 99887 76655" />
+        <TextInput type="tel" value={form.emergencyContactPhone} onChange={(event) => updateField("emergencyContactPhone", event.target.value)} placeholder="+91 99887 76655" />
       </Field>
       <div className="flex gap-3 md:col-span-2">
-        <Button type="button" onClick={handleSave} disabled={isSaving}>
+        <Button type="submit" disabled={isSaving}>
           {isSaving ? "Saving..." : parent ? "Update Parent" : "Save Parent"}
         </Button>
         <Button type="button" variant="secondary" onClick={onCancel} disabled={isSaving}>

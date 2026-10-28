@@ -1,4 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { scheduleIsDue } from "@/lib/schedule-rules";
+import { canCallNumber } from "@/lib/calling-access";
 import { getCallProvider } from "@/lib/call-providers";
 import { generateMedicineReminderScript, getLanguageTemplate } from "@/lib/call-scripts";
 import { sendAlertEmail } from "@/lib/services/notifications";
@@ -21,8 +23,8 @@ type ParentRow = Database["public"]["Tables"]["parents"]["Row"];
 type VoiceSettingsRow = Database["public"]["Tables"]["voice_settings"]["Row"];
 
 type CallLogWithRelations = CallLogRow & {
-  parents?: Pick<ParentRow, "id" | "name" | "phone" | "relationship" | "language"> | null;
-  medicine_schedules?: Pick<MedicineRow, "id" | "medicine_name" | "dosage_instruction" | "scheduled_time" | "food_timing"> | null;
+  parents?: Pick<ParentRow, "id" | "name" | "phone" | "relationship" | "language" | "caregiver_id" | "status" | "updated_at"> | null;
+  medicine_schedules?: Pick<MedicineRow, "id" | "medicine_name" | "dosage_instruction" | "scheduled_time" | "food_timing" | "caregiver_id" | "parent_id" | "is_active" | "start_date" | "end_date" | "frequency" | "updated_at"> | null;
 };
 
 const DEFAULT_RETRY_DELAY_MINUTES = 10;
@@ -33,19 +35,7 @@ function scheduledDateTime(dateKey: string, scheduledTime: string) {
 }
 
 function isScheduleActiveToday(schedule: MedicineRow, dateKey = localDateKey()) {
-  if (!schedule.is_active) {
-    return false;
-  }
-
-  if (schedule.start_date && schedule.start_date > dateKey) {
-    return false;
-  }
-
-  if (schedule.end_date && schedule.end_date < dateKey) {
-    return false;
-  }
-
-  return true;
+  return scheduleIsDue(schedule, dateKey);
 }
 
 function displayTime(value: string | null) {
@@ -183,7 +173,7 @@ function toCallJob(row: CallLogWithRelations): CallJob {
 async function getCallLogWithRelations(supabase: Client, callLogId: string) {
   const { data, error } = await supabase
     .from("call_logs")
-    .select("*, parents(id, name, phone, relationship, language), medicine_schedules(id, medicine_name, dosage_instruction, scheduled_time, food_timing)")
+    .select("*, parents(id, name, phone, relationship, language, caregiver_id, status, updated_at), medicine_schedules(id, medicine_name, dosage_instruction, scheduled_time, food_timing, caregiver_id, parent_id, is_active, start_date, end_date, frequency, updated_at)")
     .eq("id", callLogId)
     .single();
 
@@ -210,7 +200,7 @@ async function createCallLogForSchedule(
   settings: Awaited<ReturnType<typeof getVoiceSettings>>,
   options?: { skipPastTimes?: boolean }
 ): Promise<CallLogCreateOutcome> {
-  if (!isScheduleActiveToday(schedule, dateKey) || schedule.parents?.status === "inactive") {
+  if (!isScheduleActiveToday(schedule, dateKey) || schedule.parents?.status !== "active") {
     return "ineligible";
   }
 
@@ -360,10 +350,11 @@ export async function generateTodayCallLogs(supabase: Client) {
 export async function getPendingCalls(supabase: Client) {
   const { data, error } = await supabase
     .from("call_logs")
-    .select("*, parents(id, name, phone, relationship, language), medicine_schedules(id, medicine_name, dosage_instruction, scheduled_time, food_timing)")
+    .select("*, parents(id, name, phone, relationship, language, caregiver_id, status, updated_at), medicine_schedules(id, medicine_name, dosage_instruction, scheduled_time, food_timing, caregiver_id, parent_id, is_active, start_date, end_date, frequency, updated_at)")
     .eq("call_status", "pending")
     .lte("scheduled_for", new Date().toISOString())
-    .order("scheduled_for", { ascending: true });
+    .order("scheduled_for", { ascending: true })
+    .limit(20);
 
   if (error) {
     throw new Error(error.message);
@@ -434,7 +425,7 @@ export async function createAlertFromCallResult(supabase: Client, callLog: CallL
       alert_type: "call_failed",
       severity: "high",
       title: "Reminder call failed",
-      message: `The reminder call to ${parentName} for ${medicineName} could not be completed. Check the calling provider and account balance.`
+      message: `The reminder call to ${parentName} for ${medicineName} could not be completed. Check number verification or contact your account administrator.`
     },
     // Only reached when retries are exhausted; an active snooze creates a retry instead.
     snoozed: {
@@ -503,7 +494,10 @@ export async function finalizeCallResult(
   let retryCreated = false;
   let alertCreated = false;
 
-  if ((result.status === "snoozed" || result.status === "no_answer") && updated.retry_count < settings.max_retries) {
+  const schedule = updatedWithRelations.medicine_schedules;
+  const retryDay = localDateKey(new Date(Date.now() + settings.retry_delay_minutes * 60000));
+  const canRetry = schedule && scheduleIsDue(schedule, retryDay) && updatedWithRelations.parents?.status === "active" && retryDay === localDateKey(new Date(updated.scheduled_for ?? updated.created_at));
+  if (canRetry && (result.status === "snoozed" || result.status === "no_answer") && updated.retry_count < settings.max_retries) {
     await createRetryCallLog(supabase, updatedWithRelations, settings);
     retryCreated = true;
   } else if (
@@ -526,7 +520,7 @@ export async function getStuckCallingLogs(supabase: Client, olderThanMinutes: nu
   const cutoff = new Date(Date.now() - olderThanMinutes * 60 * 1000).toISOString();
   const { data, error } = await supabase
     .from("call_logs")
-    .select("*, parents(id, name, phone, relationship, language), medicine_schedules(id, medicine_name, dosage_instruction, scheduled_time, food_timing)")
+    .select("*, parents(id, name, phone, relationship, language, caregiver_id, status, updated_at), medicine_schedules(id, medicine_name, dosage_instruction, scheduled_time, food_timing, caregiver_id, parent_id, is_active, start_date, end_date, frequency, updated_at)")
     .eq("call_status", "calling")
     .lt("call_started_at", cutoff)
     .order("call_started_at", { ascending: true })
@@ -542,7 +536,7 @@ export async function getStuckCallingLogs(supabase: Client, olderThanMinutes: nu
 export async function findCallLogByProviderCallId(supabase: Client, providerCallId: string) {
   const { data, error } = await supabase
     .from("call_logs")
-    .select("*, parents(id, name, phone, relationship, language), medicine_schedules(id, medicine_name, dosage_instruction, scheduled_time, food_timing)")
+    .select("*, parents(id, name, phone, relationship, language, caregiver_id, status, updated_at), medicine_schedules(id, medicine_name, dosage_instruction, scheduled_time, food_timing, caregiver_id, parent_id, is_active, start_date, end_date, frequency, updated_at)")
     .eq("provider_call_id", providerCallId)
     .maybeSingle();
 
@@ -558,37 +552,49 @@ export async function processPendingCall(
   callLogId: string,
   options?: { simulatedResponse?: SimulatedCallResponse }
 ) {
-  const callLog = await getCallLogWithRelations(supabase, callLogId);
-  const provider = getCallProvider();
-
   // Claim the row: only a transition from pending can proceed, so overlapping
   // cron runs or a re-sent process-one request cannot dial the parent twice.
-  const { data: claimedRows, error: callingError } = await supabase
-    .from("call_logs")
-    .update({
-      call_status: "calling",
-      call_started_at: new Date().toISOString()
-    })
-    .eq("id", callLogId)
-    .eq("call_status", "pending")
-    .select("id");
+  const { data: claimed, error: callingError } = await supabase.rpc("claim_pending_call", { p_id: callLogId });
+  if (callingError) throw new Error(callingError.message);
+  if (!claimed) return null;
 
-  if (callingError) {
-    throw new Error(callingError.message);
+  // Check ownership and current state again immediately before placing a call.
+  // A deleted/paused/edited schedule must never use an old queued script.
+  const latest = await getCallLogWithRelations(supabase, callLogId);
+  if (!latest.medicine_schedule_id) {
+    // The test endpoint reserves a future slot so a scheduler cannot race its
+    // immediate request. Once claimed, display the actual request time.
+    const started = new Date().toISOString();
+    const { error } = await supabase.from("call_logs").update({ scheduled_for: started }).eq("id", callLogId).eq("call_status", "calling");
+    if (error) throw new Error(error.message);
+    latest.scheduled_for = started;
   }
-
-  if (!claimedRows || claimedRows.length === 0) {
-    return null;
+  const schedule = latest.medicine_schedules;
+  const parent = latest.parents;
+  const stale = Date.now() - Date.parse(latest.scheduled_for ?? latest.created_at) > 15 * 60000;
+  const invalid = !parent || parent.caregiver_id !== latest.caregiver_id || parent.status !== "active" ||
+    (latest.medicine_schedule_id && (!schedule || schedule.caregiver_id !== latest.caregiver_id || schedule.parent_id !== parent.id || !scheduleIsDue(schedule, localDateKey()) || Date.parse(schedule.updated_at) > Date.parse(latest.created_at))) ||
+    Date.parse(parent?.updated_at ?? "") > Date.parse(latest.created_at);
+  if (invalid || stale || !canCallNumber(parent?.phone ?? "", latest.caregiver_id)) {
+    const stopped = await finalizeCallResult(supabase, callLogId, { status: "failed", responseType: "no_response", notes: invalid || stale ? "Reminder cancelled: parent or schedule changed, paused, deleted or expired." : "This number is not verified for trial account calling." }, { onlyIfStatusIn: ["calling"] });
+    return stopped ? { ...stopped, providerCallId: undefined } : null;
   }
-
+  // No schedule means a one-time test call; scripts for that path are generated
+  // by the authenticated test endpoint, never accepted from the browser.
   let placement: CallPlacement;
 
   try {
-    placement = await provider.placeCall(toCallJob(callLog), options);
+    placement = await getCallProvider().placeCall(toCallJob(latest), options);
   } catch (error) {
-    // Without this the log would sit in "calling" forever and nobody would know
-    // the call was never placed.
-    const message = error instanceof Error ? error.message : "Unknown provider error.";
+    // A timeout/network error can occur after the remote service accepted the
+    // call. Keep the claim for its callback/reconciliation; never dial it again.
+    if (error instanceof Error && ["AbortError", "TimeoutError", "TypeError"].includes(error.name)) {
+      const { error: saveError } = await supabase.from("call_logs").update({ notes: "Call request is being checked. Waiting for the final result." }).eq("id", callLogId).eq("call_status", "calling");
+      if (saveError) throw new Error(saveError.message);
+      return { callLog: latest, status: "calling" as CallStatus, responseType: null, retryCreated: false, alertCreated: false, providerCallId: undefined };
+    }
+    // An explicit rejection is final and visible in the caregiver's alerts.
+    const message = error instanceof Error && /verified|trial accounts/i.test(error.message) ? "This number is not verified for trial account calling." : "Calling service unavailable. Contact your account administrator.";
     const failed = await finalizeCallResult(supabase, callLogId, {
       status: "failed",
       responseType: "no_response",
@@ -607,7 +613,8 @@ export async function processPendingCall(
         provider_call_id: placement.providerCallId,
         notes: placement.notes ?? null
       })
-      .eq("id", callLogId);
+      .eq("id", callLogId)
+      .eq("call_status", "calling");
 
     if (initiatedError) {
       throw new Error(initiatedError.message);
@@ -672,7 +679,7 @@ export async function getTodayScheduleWithCallStatus(supabase: Client): Promise<
   const end = endOfLocalDay().toISOString();
 
   const [{ data: schedules, error: schedulesError }, { data: callLogs, error: callLogsError }] = await Promise.all([
-    supabase.from("medicine_schedules").select("*, parents(name, language)").eq("is_active", true).order("scheduled_time", { ascending: true }),
+    supabase.from("medicine_schedules").select("*, parents(name, language, status)").eq("is_active", true).order("scheduled_time", { ascending: true }),
     supabase
       .from("call_logs")
       .select("medicine_schedule_id, scheduled_for, call_status, script_text, script_language")
@@ -701,8 +708,8 @@ export async function getTodayScheduleWithCallStatus(supabase: Client): Promise<
     }
   }
 
-  return ((schedules ?? []) as Array<MedicineRow & { parents?: { name: string | null; language: string | null } | null }>)
-    .filter((schedule) => isScheduleActiveToday(schedule, dateKey))
+  return ((schedules ?? []) as Array<MedicineRow & { parents?: { name: string | null; language: string | null; status: string | null } | null }>)
+    .filter((schedule) => isScheduleActiveToday(schedule, dateKey) && schedule.parents?.status === "active")
     .map((schedule) => {
       const latest = latestBySchedule.get(schedule.id);
 

@@ -20,6 +20,7 @@ async function fetchExecution(providerCallId: string): Promise<{ ok: true; paylo
 
   const apiUrl = process.env.BOLNA_API_URL ?? DEFAULT_BOLNA_API_URL;
   const response = await fetch(`${apiUrl}/executions/${encodeURIComponent(providerCallId)}`, {
+    signal: AbortSignal.timeout(10000),
     headers: { Authorization: `Bearer ${apiKey}` }
   });
 

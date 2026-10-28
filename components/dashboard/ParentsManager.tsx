@@ -7,8 +7,9 @@ import { PageHeader } from "@/components/dashboard/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { createParent, deactivateParent, updateParent } from "@/lib/services/parents";
-import { createClient } from "@/lib/supabase/client";
+import { familyAction } from "@/lib/family-api";
+import { TestCallButton } from "@/components/dashboard/calls/TestCallButton";
+
 import type { Parent, ParentInput } from "@/lib/types";
 
 export function ParentsManager({
@@ -30,10 +31,7 @@ export function ParentsManager({
     setError(null);
 
     try {
-      const supabase = createClient();
-      const savedParent = editingParent
-        ? await updateParent(supabase, editingParent.id, input)
-        : await createParent(supabase, input);
+      const { item: savedParent } = await familyAction<Parent>("parent", "save", { id: editingParent?.id, input });
 
       setParents((current) =>
         editingParent
@@ -54,14 +52,24 @@ export function ParentsManager({
     setError(null);
 
     try {
-      const supabase = createClient();
-      const updatedParent = await deactivateParent(supabase, parent.id);
+      const { item: updatedParent } = await familyAction<Parent>("parent", "status", { id: parent.id, active: parent.status !== "active" });
       setParents((current) => current.map((item) => (item.id === parent.id ? updatedParent : item)));
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Could not deactivate parent.");
     } finally {
       setWorkingParentId(null);
     }
+  }
+
+  async function handleDelete(parent: Parent) {
+    if (!window.confirm(`Delete ${parent.name}? Their medicines, call history and alerts will also be permanently removed.`)) return;
+    setWorkingParentId(parent.id); setError(null);
+    try {
+      await familyAction("parent", "delete", { id: parent.id });
+      setParents(current => current.filter(item => item.id !== parent.id));
+      if (editingParent?.id === parent.id) { setShowForm(false); setEditingParent(undefined); }
+    } catch (error) { setError(error instanceof Error ? error.message : "Could not delete parent."); }
+    finally { setWorkingParentId(null); }
   }
 
   return (
@@ -83,12 +91,13 @@ export function ParentsManager({
         }
       />
 
-      {error ? <p className="rounded-lg bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{error}</p> : null}
+      {error ? <p role="alert" className="rounded-lg bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{error}</p> : null}
 
       {showForm ? (
         <Card>
           <h2 className="mb-4 text-xl font-bold text-care-ink">{editingParent ? "Edit parent" : "Add parent"}</h2>
           <ParentForm
+            key={editingParent?.id ?? "new"}
             parent={editingParent}
             isSaving={isSaving}
             onCancel={() => {
@@ -117,6 +126,7 @@ export function ParentsManager({
                   </div>
                   <StatusBadge label={parent.status} tone={parent.status === "active" ? "green" : "amber"} />
                 </div>
+                <p className="mt-3 text-sm font-semibold text-sage-700">{parent.callingVerified ? "Verified for calls" : "Verification needed before calling"}</p>
                 <dl className="mt-5 space-y-3 text-sm">
                   <div>
                     <dt className="font-semibold text-sage-900">Phone number</dt>
@@ -146,12 +156,16 @@ export function ParentsManager({
                   <Button
                     type="button"
                     variant="ghost"
-                    disabled={workingParentId === parent.id || parent.status === "inactive"}
+                    disabled={workingParentId !== null}
                     icon={<UserMinus className="h-4 w-4" aria-hidden="true" />}
                     onClick={() => handleDeactivate(parent)}
                   >
-                    {workingParentId === parent.id ? "Updating..." : "Mark inactive"}
+                    {workingParentId === parent.id ? "Updating..." : parent.status === "active" ? "Pause calls" : "Reactivate"}
                   </Button>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <TestCallButton parent={parent} />
+                  <Button type="button" variant="ghost" disabled={workingParentId !== null} onClick={() => handleDelete(parent)}>Delete parent</Button>
                 </div>
               </div>
             </Card>

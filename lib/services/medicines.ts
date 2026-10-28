@@ -1,6 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import type { Frequency, MealTiming, MedicineSchedule, MedicineScheduleInput } from "@/lib/types";
+import { validateMedicine } from "@/lib/validation";
+import { scheduleIsDue } from "@/lib/schedule-rules";
+import { localDateKey } from "@/lib/services/timezone";
 import { getCurrentUserId } from "@/lib/services/auth";
 
 type MedicineRow = Database["public"]["Tables"]["medicine_schedules"]["Row"];
@@ -12,7 +15,7 @@ function normalizeTime(value: string) {
   return value.slice(0, 5);
 }
 
-function mapMedicine(row: MedicineWithParentRow): MedicineSchedule {
+export function mapMedicine(row: MedicineWithParentRow): MedicineSchedule {
   return {
     id: row.id,
     caregiverId: row.caregiver_id,
@@ -33,6 +36,7 @@ function mapMedicine(row: MedicineWithParentRow): MedicineSchedule {
 }
 
 function toMedicinePayload(input: MedicineScheduleInput, caregiverId: string) {
+  validateMedicine(input);
   return {
     caregiver_id: caregiverId,
     parent_id: input.parentId,
@@ -61,8 +65,8 @@ export async function listMedicineSchedules(supabase: SupabaseClient<Database>) 
   return ((data ?? []) as MedicineWithParentRow[]).map(mapMedicine);
 }
 
-export async function createMedicineSchedule(supabase: SupabaseClient<Database>, input: MedicineScheduleInput) {
-  const caregiverId = await getCurrentUserId(supabase);
+export async function createMedicineSchedule(supabase: SupabaseClient<Database>, input: MedicineScheduleInput, userId?: string) {
+  const caregiverId = userId ?? await getCurrentUserId(supabase);
   const { data, error } = await supabase
     .from("medicine_schedules")
     .insert(toMedicinePayload(input, caregiverId))
@@ -79,9 +83,10 @@ export async function createMedicineSchedule(supabase: SupabaseClient<Database>,
 export async function updateMedicineSchedule(
   supabase: SupabaseClient<Database>,
   id: string,
-  input: MedicineScheduleInput
+  input: MedicineScheduleInput,
+  userId?: string
 ) {
-  const caregiverId = await getCurrentUserId(supabase);
+  const caregiverId = userId ?? await getCurrentUserId(supabase);
   const { data, error } = await supabase
     .from("medicine_schedules")
     .update(toMedicinePayload(input, caregiverId))
@@ -112,19 +117,5 @@ export async function deactivateMedicineSchedule(supabase: SupabaseClient<Databa
 }
 
 export function isScheduleActiveToday(schedule: MedicineSchedule, today = new Date()) {
-  if (!schedule.isActive) {
-    return false;
-  }
-
-  const todayDate = today.toISOString().slice(0, 10);
-
-  if (schedule.startDate && schedule.startDate > todayDate) {
-    return false;
-  }
-
-  if (schedule.endDate && schedule.endDate < todayDate) {
-    return false;
-  }
-
-  return true;
+  return scheduleIsDue({ is_active: schedule.isActive, start_date: schedule.startDate, end_date: schedule.endDate, frequency: schedule.frequency }, localDateKey(today));
 }

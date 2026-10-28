@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import type { RespectMode, VoiceSettings, VoiceSettingsInput } from "@/lib/types";
+import { validateSettings } from "@/lib/validation";
 import { getCurrentUserId } from "@/lib/services/auth";
 
 type VoiceSettingsRow = Database["public"]["Tables"]["voice_settings"]["Row"];
@@ -19,6 +20,7 @@ function mapSettings(row: VoiceSettingsRow): VoiceSettings {
 }
 
 function toSettingsPayload(input: VoiceSettingsInput, caregiverId: string) {
+  validateSettings(input);
   return {
     caregiver_id: caregiverId,
     preferred_language: input.languagePreference,

@@ -8,13 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { formatEnum } from "@/lib/utils";
-import { generateCallLogForSchedule } from "@/lib/services/call-engine";
-import {
-  createMedicineSchedule,
-  deactivateMedicineSchedule,
-  updateMedicineSchedule
-} from "@/lib/services/medicines";
-import { createClient } from "@/lib/supabase/client";
+import { familyAction } from "@/lib/family-api";
 import type { MedicineSchedule, MedicineScheduleInput, Parent } from "@/lib/types";
 
 export function MedicinesManager({
@@ -31,6 +25,7 @@ export function MedicinesManager({
   const [editingSchedule, setEditingSchedule] = useState<MedicineSchedule | undefined>();
   const [isSaving, setIsSaving] = useState(false);
   const [workingScheduleId, setWorkingScheduleId] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(initialError ?? null);
 
   async function handleSave(input: MedicineScheduleInput) {
@@ -38,19 +33,8 @@ export function MedicinesManager({
     setError(null);
 
     try {
-      const supabase = createClient();
-      const savedSchedule = editingSchedule
-        ? await updateMedicineSchedule(supabase, editingSchedule.id, input)
-        : await createMedicineSchedule(supabase, input);
-
-      // Schedule today's call right away. Without this the medicine would wait
-      // for the nightly generator, so a reminder added during the day would
-      // never fire today.
-      try {
-        await generateCallLogForSchedule(supabase, savedSchedule.id);
-      } catch {
-        // The nightly generator will still pick this up; saving must not fail.
-      }
+      const { item: savedSchedule, message } = await familyAction<MedicineSchedule>("medicine", "save", { id: editingSchedule?.id, input });
+      setMessage(message ?? "Medicine saved.");
 
       setSchedules((current) =>
         editingSchedule
@@ -71,8 +55,8 @@ export function MedicinesManager({
     setError(null);
 
     try {
-      const supabase = createClient();
-      const updatedSchedule = await deactivateMedicineSchedule(supabase, schedule.id);
+      const { item: updatedSchedule, message } = await familyAction<MedicineSchedule>("medicine", "status", { id: schedule.id, active: !schedule.isActive });
+      setMessage(message ?? "Status updated.");
       setSchedules((current) => current.map((item) => (item.id === schedule.id ? updatedSchedule : item)));
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Could not deactivate medicine schedule.");
@@ -80,6 +64,18 @@ export function MedicinesManager({
       setWorkingScheduleId(null);
     }
   }
+
+  async function handleDelete(schedule: MedicineSchedule) {
+    if (!window.confirm(`Delete ${schedule.medicineName}? Queued calls will be removed. Completed call history will remain.`)) return;
+    setWorkingScheduleId(schedule.id); setError(null);
+    try {
+      await familyAction("medicine", "delete", { id: schedule.id });
+      setSchedules(current => current.filter(item => item.id !== schedule.id));
+      if (editingSchedule?.id === schedule.id) { setShowForm(false); setEditingSchedule(undefined); }
+    } catch (error) { setError(error instanceof Error ? error.message : "Could not delete medicine."); }
+    finally { setWorkingScheduleId(null); }
+  }
+  const activeParents = parents.filter(parent => parent.status === "active");
 
   return (
     <div className="space-y-6">
@@ -93,7 +89,7 @@ export function MedicinesManager({
               setEditingSchedule(undefined);
               setShowForm(true);
             }}
-            disabled={parents.length === 0}
+            disabled={activeParents.length === 0}
             icon={<Plus className="h-4 w-4" aria-hidden="true" />}
           >
             Add Medicine
@@ -101,9 +97,11 @@ export function MedicinesManager({
         }
       />
 
-      {error ? <p className="rounded-lg bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{error}</p> : null}
+      {error ? <p role="alert" className="rounded-lg bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{error}</p> : null}
 
-      {parents.length === 0 ? (
+      {message ? <p role="status" className="rounded-lg bg-sage-50 px-4 py-3 text-sm text-sage-800">{message}</p> : null}
+
+      {activeParents.length === 0 ? (
         <Card>
           <p className="text-base font-semibold text-care-ink">Add a parent first</p>
           <p className="mt-2 text-sm leading-6 text-sage-700">Medicine schedules need a parent to receive the reminder call.</p>
@@ -114,7 +112,8 @@ export function MedicinesManager({
         <Card>
           <h2 className="mb-4 text-xl font-bold text-care-ink">{editingSchedule ? "Edit medicine" : "Add medicine"}</h2>
           <MedicineForm
-            parents={parents.filter((parent) => parent.status !== "inactive")}
+            key={editingSchedule?.id ?? "new"}
+            parents={parents.filter(parent => parent.status === "active" || parent.id === editingSchedule?.parentId)}
             schedule={editingSchedule}
             isSaving={isSaving}
             onCancel={() => {
@@ -148,7 +147,7 @@ export function MedicinesManager({
               <dl className="mt-5 grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <dt className="font-semibold text-sage-900">Time</dt>
-                  <dd className="text-sage-700">{schedule.time}</dd>
+                  <dd className="text-sage-700">{schedule.time} IST</dd>
                 </div>
                 <div>
                   <dt className="font-semibold text-sage-900">Food timing</dt>
@@ -178,13 +177,14 @@ export function MedicinesManager({
                 <Button
                   type="button"
                   variant="ghost"
-                  disabled={workingScheduleId === schedule.id || !schedule.isActive}
+                  disabled={workingScheduleId !== null}
                   icon={<ToggleLeft className="h-4 w-4" aria-hidden="true" />}
                   onClick={() => handleDeactivate(schedule)}
                 >
-                  {workingScheduleId === schedule.id ? "Updating..." : "Deactivate"}
+                  {workingScheduleId === schedule.id ? "Updating..." : schedule.isActive ? "Pause reminder" : "Reactivate"}
                 </Button>
               </div>
+              <Button className="mt-2" type="button" variant="ghost" disabled={workingScheduleId !== null} onClick={() => handleDelete(schedule)}>Delete medicine</Button>
             </Card>
           ))}
         </section>

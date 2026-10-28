@@ -61,12 +61,14 @@ function dayLabel(dateKey: string) {
 }
 
 export async function getAdherenceSummary(supabase: Client): Promise<AnalyticsSummary> {
-  const windowStart = startOfLocalDay(daysAgo(WINDOW_DAYS - 1)).toISOString();
+  const now = new Date();
+  const windowStart = startOfLocalDay(daysAgo(WINDOW_DAYS - 1, now)).toISOString();
 
   const { data, error } = await supabase
     .from("call_logs")
     .select("scheduled_for, call_status, medicine_schedule_id, parent_id, parents(name), medicine_schedules(medicine_name)")
     .gte("scheduled_for", windowStart)
+    .lte("scheduled_for", now.toISOString())
     .order("scheduled_for", { ascending: true });
 
   if (error) {
@@ -86,6 +88,7 @@ export async function getAdherenceSummary(supabase: Client): Promise<AnalyticsSu
   const doses = new Map<string, DoseOutcome>();
 
   for (const row of (data ?? []) as Row[]) {
+    if (!row.medicine_schedule_id || !OUTCOME_PRECEDENCE.includes(row.call_status as CallStatus)) continue;
     const status = row.call_status as CallStatus;
     const dateKey = localDateKey(new Date(row.scheduled_for));
     const doseKey = `${row.parent_id ?? "?"}:${row.medicine_schedule_id ?? "?"}:${dateKey}`;

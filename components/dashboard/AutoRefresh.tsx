@@ -6,7 +6,7 @@ import { useEffect } from "react";
 // Call outcomes land asynchronously: the Bolna webhook or the scheduler writes
 // them minutes after the page was rendered. Without this the caregiver sees a
 // stale list until they reload by hand.
-export function AutoRefresh({ intervalSeconds = 20 }: { intervalSeconds?: number }) {
+export function AutoRefresh({ intervalSeconds = 10 }: { intervalSeconds?: number }) {
   const router = useRouter();
 
   useEffect(() => {
