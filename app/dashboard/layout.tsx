@@ -42,7 +42,7 @@ export default async function DashboardLayout({
           id="dashboard-content"
           className="mx-auto max-w-[1440px] px-5 py-7 pb-28 sm:px-8 sm:py-8 lg:px-10 lg:pb-12"
         >
-          {!isPresentationDemo(user.id) && freeTierCalling() ? (
+          {freeTierCalling() ? (
             <details className="group mb-7 rounded-xl border border-[#e5dfc7] bg-[#faf7ec] px-4 py-3 text-xs text-[#756344]">
               <summary className="focus-ring flex cursor-pointer items-center gap-2.5 rounded leading-5">
                 <Info size={15} className="shrink-0" aria-hidden="true" />
@@ -62,16 +62,25 @@ export default async function DashboardLayout({
                 </span>
               </summary>
               <p className="mt-3 max-w-3xl border-t border-[#e5dfc7] pt-3 leading-6">
-                Live calls can only reach numbers verified for your account.
-                Adding a parent does not verify their number. Your account
-                administrator can arrange verification.{" "}
-                <Link
-                  href="/dashboard/parents"
-                  className="focus-ring rounded font-semibold underline underline-offset-4"
-                >
-                  Review your family’s calling access
-                </Link>
-                .
+                {isPresentationDemo(user.id) ? (
+                  <>
+                    Live and test calls are disabled for this account. Free-tier
+                    calling requires verified numbers.
+                  </>
+                ) : (
+                  <>
+                    Live calls can only reach numbers verified for your account.
+                    Adding a parent does not verify their number. Your account
+                    administrator can arrange verification.{" "}
+                    <Link
+                      href="/dashboard/parents"
+                      className="focus-ring rounded font-semibold underline underline-offset-4"
+                    >
+                      Review your family’s calling access
+                    </Link>
+                    .
+                  </>
+                )}
               </p>
             </details>
           ) : null}
